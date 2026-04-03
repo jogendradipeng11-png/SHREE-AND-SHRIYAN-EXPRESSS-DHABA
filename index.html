@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shree & Shriyan Dhaba POS - Upgraded with Table Ordering</title>
+<style>
+body {
+  font-family: Arial;
+  background: linear-gradient(135deg,#ff9800,#ff5722);
+  padding:10px;
+}
+.container {
+  max-width:500px;
+  margin:auto;
+  background:white;
+  padding:15px;
+  border-radius:15px;
+}
+h2 { text-align:center; color:#d84315; }
+input, select, button {
+  width:100%;
+  padding:10px;
+  margin-top:8px;
+}
+button {
+  background:#2e7d32;
+  color:white;
+  border:none;
+  border-radius:8px;
+  font-size:16px;
+}
+table { width:100%; margin-top:10px; }
+.total {
+  font-size:20px;
+  font-weight:bold;
+  color:#d84315;
+}
+.logo img { width:100px; display:block; margin:auto; }
+
+/* Extra styles for customer view */
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff3e0;
+  border: 2px solid #ff9800;
+  border-radius: 10px;
+  padding: 12px;
+  margin: 8px 0;
+  font-size: 16px;
+}
+#ordersPanel {
+  background: #fff3e0;
+  border: 3px solid #d84315;
+  border-radius: 12px;
+  padding: 15px;
+  margin-top: 15px;
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ==================== STAFF POS VIEW ==================== -->
+  <div id="staffView">
+    <div class="logo">
+      <img src="LOGO.png">
+      <h2>Shree & Shriyan Dhaba</h2>
+      <p style="text-align:center;color:#d84315;font-weight:bold;">STAFF POS</p>
+    </div>
+
+    <input id="customerName" placeholder="Customer Name">
+    <input id="customerAddress" placeholder="Address">
+    <input id="invoice" readonly>
+    
+    <select id="item"></select>
+    <input id="qty" type="number" placeholder="Qty" value="1">
+    
+    <button onclick="addItem()">➕ Add Item</button>
+    <button onclick="voiceAdd()">🎤 Voice Add</button>
+
+    <table border="1">
+      <thead>
+        <tr><th>Item</th><th>Qty</th><th>Amt</th><th>X</th></tr>
+      </thead>
+      <tbody id="bill"></tbody>
+    </table>
+
+    <label><input type="checkbox" id="gst" checked> GST 5%</label>
+    <div class="total">Total: ₹ <span id="total">0</span></div>
+
+    <button onclick="printBill()">🧾 Print</button>
+    <button onclick="downloadPDF()">📄 PDF</button>
+    <button onclick="exportExcel()">📊 Excel</button>
+    <button onclick="sendWhatsApp()">📲 WhatsApp</button>
+    <button onclick="connectBT()">🖨️ Connect Printer</button>
+    <button onclick="printBT()">🖨️ Print Bluetooth</button>
+    <button onclick="dailyReport()">📊 Daily Report</button>
+    
+    <!-- NEW: Table Orders Button -->
+    <button onclick="showTableOrders()" style="background:#d84315;">📋 View Table Orders (Live)</button>
+    
+    <!-- NEW: QR Generator for Tables -->
+    <h4 style="margin-top:20px;color:#d84315;">Generate QR for Table Ordering</h4>
+    <input id="qrTableNum" type="number" placeholder="Table Number (e.g. 5)">
+    <button onclick="generateQRCode()" style="background:#ff9800;">📱 Generate Table QR</button>
+    <div id="qrContainer" style="text-align:center;margin:15px 0;"></div>
+
+    <div style="text-align:center;margin-top:10px;">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=yourupi@upi">
+      <p style="font-size:12px;">UPI Payment QR</p>
+    </div>
+
+    <!-- Orders Panel (appears when clicked) -->
+    <div id="ordersPanel" style="display:none;"></div>
+  </div>
+
+  <!-- ==================== CUSTOMER ORDERING VIEW ==================== -->
+  <div id="customerView" style="display:none;">
+    <div class="logo">
+      <img src="LOGO.png">
+      <h2>Shree & Shriyan Dhaba</h2>
+      <p style="text-align:center;color:#2e7d32;font-weight:bold;">TABLE ORDERING</p>
+    </div>
+
+    <!-- Sign-in Form -->
+    <div id="signInSection">
+      <h3 style="text-align:center;">Welcome! Sign in to order</h3>
+      <input id="custTable" type="number" placeholder="Your Table Number">
+      <input id="custName" placeholder="Your Name (optional)">
+      <button onclick="joinTable()" style="background:#d84315;font-size:18px;">✅ Start Ordering</button>
+      <p style="text-align:center;font-size:14px;margin-top:10px;color:#666;">
+        Scan the QR on your table → Enter table number &amp; name
+      </p>
+    </div>
+
+    <!-- Menu + Cart (hidden until signed in) -->
+    <div id="menuSection" style="display:none;">
+      <h3 style="text-align:center;">Menu for Table <span id="displayTable" style="color:#d84315;"></span></h3>
+      <p style="text-align:center;">Hello, <span id="displayName" style="font-weight:bold;"></span>!</p>
+
+      <div id="menuItems"></div>
+
+      <h3 style="margin-top:20px;">Your Order</h3>
+      <table border="1">
+        <thead>
+          <tr><th>Item</th><th>Qty</th><th>Amt</th><th>X</th></tr>
+        </thead>
+        <tbody id="customerBill"></tbody>
+      </table>
+
+      <div class="total">Your Total: ₹ <span id="custTotal">0</span></div>
+
+      <button onclick="placeCustomerOrder()" style="background:#d84315;">✅ Place Order for Kitchen</button>
+      <button onclick="clearCustomerOrder()" style="background:#666;">🗑️ Clear Cart</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ====================== SHARED DATA ======================
+let items = [
+  {name:"Aloo Paratha",price:50},
+  {name:"Paneer Butter Masala",price:180},
+  {name:"Dal Tadka",price:150},
+  {name:"Naan",price:40}
+];
+
+let bill = [];
+let customerOrder = [];   // Customer's cart in their session
+let currentTable = '';
+let currentName = '';
+
+// Invoice counter
+let count = localStorage.getItem("inv") || 1;
+document.getElementById("invoice").value = "Invoice" + String(count).padStart(3,'0');
+
+// ====================== MODE DETECTION (STAFF vs CUSTOMER) ======================
+function initializeApp() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const mode = urlParams.get('mode');
+  currentTable = urlParams.get('table') || '';
+  currentName = urlParams.get('name') || '';
+
+  if (mode === 'customer') {
+    // CUSTOMER MODE
+    document.getElementById('staffView').style.display = 'none';
+    document.getElementById('customerView').style.display = 'block';
+    
+    // Prefill table (from QR) and show sign-in form
+    document.getElementById('custTable').value = currentTable;
+    document.getElementById('custName').value = currentName;
+  } else {
+    // STAFF MODE (default)
+    document.getElementById('staffView').style.display = 'block';
+    document.getElementById('customerView').style.display = 'none';
+    loadItems();
+  }
+}
+
+// ====================== STAFF FUNCTIONS (original + new) ======================
+function loadItems(){
+  const select = document.getElementById("item");
+  select.innerHTML = "";
+  items.forEach((i, index) => {
+    select.innerHTML += `<option value="${index}">${i.name} - ₹${i.price}</option>`;
+  });
+}
+
+function addItem(){
+  let i = items[document.getElementById("item").value];
+  let q = parseInt(document.getElementById("qty").value) || 1;
+  bill.push({...i, qty: q});
+  render();
+}
+
+function voiceAdd(){
+  if (!('webkitSpeechRecognition' in window)) {
+    alert("Voice recognition not supported on this device");
+    return;
+  }
+  let rec = new webkitSpeechRecognition();
+  rec.onresult = function(e){
+    let text = e.results[0][0].transcript.toLowerCase();
+    items.forEach(i => {
+      if (text.includes(i.name.toLowerCase())) {
+        bill.push({...i, qty: 1});
+      }
+    });
+    render();
+  };
+  rec.start();
+}
+
+function del(i){ 
+  bill.splice(i,1); 
+  render(); 
+}
+
+function render(){
+  let html = "";
+  let total = 0;
+  bill.forEach((b, i) => {
+    let t = b.qty * b.price;
+    total += t;
+    html += `<tr>
+      <td>${b.name}</td>
+      <td>${b.qty}</td>
+      <td>₹${t}</td>
+      <td onclick="del(${i})" style="cursor:pointer;color:red;">❌</td>
+    </tr>`;
+  });
+  if (document.getElementById("gst").checked) total *= 1.05;
+  document.getElementById("bill").innerHTML = html;
+  document.getElementById("total").innerText = total.toFixed(2);
+}
+
+function printBill(){ window.print(); }
+function downloadPDF(){ window.print(); }
+
+function exportExcel(){
+  let csv = "Item,Qty,Price\n";
+  bill.forEach(b => {
+    csv += `${b.name},${b.qty},${b.price}\n`;
+  });
+  let blob = new Blob([csv], {type: "text/csv"});
+  let a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `bill-${document.getElementById("invoice").value}.csv`;
+  a.click();
+}
+
+function sendWhatsApp(){
+  let msg = `Invoice: ${document.getElementById("invoice").value}\n`;
+  bill.forEach(b => msg += `${b.name} x${b.qty} - ₹${b.qty*b.price}\n`);
+  msg += `Total: ₹${document.getElementById("total").innerText}`;
+  window.open("https://wa.me/?text=" + encodeURIComponent(msg));
+}
+
+function dailyReport(){
+  let all = JSON.parse(localStorage.getItem("bills")) || [];
+  let total = 0;
+  all.forEach(b => total += parseFloat(b.total || 0));
+  alert(`📊 Daily Report\nTotal sales today: ₹${total.toFixed(2)}\n\n(Orders from tables are tracked separately)`);
+}
+
+function saveLocal(){
+  let all = JSON.parse(localStorage.getItem("bills")) || [];
+  all.push({total: document.getElementById("total").innerText, invoice: document.getElementById("invoice").value});
+  localStorage.setItem("bills", JSON.stringify(all));
+}
+
+// Bluetooth (original)
+let device, char;
+async function connectBT(){
+  try{
+    device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices:true,
+      optionalServices:["000018f0-0000-1000-8000-00805f9b34fb"]
+    });
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService("000018f0-0000-1000-8000-00805f9b34fb");
+    char = await service.getCharacteristic("00002af1-0000-1000-8000-00805f9b34fb");
+    alert("✅ Printer Connected");
+  }catch(e){ alert("Bluetooth Error: "+e); }
+}
+async function printBT(){
+  let text = "Shree & Shriyan Dhaba\n";
+  text += "Invoice: "+document.getElementById("invoice").value+"\n\n";
+  bill.forEach(b => text += `${b.name} x${b.qty} = ₹${b.qty*b.price}\n`);
+  text += `\nTotal: ₹${document.getElementById("total").innerText}\nThank you!`;
+  let encoder = new TextEncoder();
+  await char.writeValue(encoder.encode(text));
+}
+
+// ====================== NEW CUSTOMER ORDERING FUNCTIONS ======================
+function joinTable(){
+  currentTable = document.getElementById("custTable").value.trim();
+  currentName = document.getElementById("custName").value.trim();
+  
+  if (!currentTable) {
+    alert("❌ Please enter your Table Number");
+    return;
+  }
+  
+  // Hide sign-in, show menu
+  document.getElementById("signInSection").style.display = "none";
+  document.getElementById("menuSection").style.display = "block";
+  
+  document.getElementById("displayTable").innerText = currentTable;
+  document.getElementById("displayName").innerText = currentName || "Guest";
+  
+  loadCustomerMenu();
+  renderCustomerOrder();
+}
+
+function loadCustomerMenu(){
+  let html = '';
+  items.forEach((item, idx) => {
+    html += `
+      <div class="menu-item">
+        <span><strong>${item.name}</strong> <small style="color:#666;">₹${item.price}</small></span>
+        <button onclick="addCustomerItem(${idx})" style="background:#2e7d32;color:white;border:none;padding:8px 20px;border-radius:6px;">+ Add</button>
+      </div>`;
+  });
+  document.getElementById("menuItems").innerHTML = html;
+}
+
+function addCustomerItem(idx){
+  let item = items[idx];
+  // Merge qty if same item already in cart
+  let existing = customerOrder.find(o => o.name === item.name);
+  if (existing) {
+    existing.qty = (existing.qty || 1) + 1;
+  } else {
+    customerOrder.push({...item, qty: 1});
+  }
+  renderCustomerOrder();
+}
+
+function renderCustomerOrder(){
+  let html = "";
+  let total = 0;
+  customerOrder.forEach((b, i) => {
+    let t = b.qty * b.price;
+    total += t;
+    html += `<tr>
+      <td>${b.name}</td>
+      <td>${b.qty}</td>
+      <td>₹${t}</td>
+      <td onclick="delCustomerItem(${i})" style="cursor:pointer;color:red;">❌</td>
+    </tr>`;
+  });
+  document.getElementById("customerBill").innerHTML = html;
+  document.getElementById("custTotal").innerText = total.toFixed(2);
+}
+
+function delCustomerItem(i){
+  customerOrder.splice(i, 1);
+  renderCustomerOrder();
+}
+
+function clearCustomerOrder(){
+  if (confirm("Clear entire cart?")) {
+    customerOrder = [];
+    renderCustomerOrder();
+  }
+}
+
+function placeCustomerOrder(){
+  if (customerOrder.length === 0) {
+    alert("Your cart is empty!");
+    return;
+  }
+  
+  let orders = JSON.parse(localStorage.getItem("tableOrders") || "[]");
+  let total = parseFloat(document.getElementById("custTotal").innerText);
+  
+  orders.push({
+    id: Date.now(),                     // unique ID
+    table: currentTable,
+    name: currentName || "Guest",
+    items: JSON.parse(JSON.stringify(customerOrder)), // deep copy
+    total: total,
+    timestamp: new Date().toLocaleString(),
+    status: "pending"
+  });
+  
+  localStorage.setItem("tableOrders", JSON.stringify(orders));
+  
+  alert(`🎉 ORDER PLACED SUCCESSFULLY!\n\nTable: ${currentTable}\nYour waiter will bring the food shortly.\nThank you!`);
+  
+  // Clear cart after placing order
+  customerOrder = [];
+  renderCustomerOrder();
+}
+
+// ====================== NEW TABLE ORDERS MANAGEMENT (STAFF) ======================
+function showTableOrders(){
+  let orders = JSON.parse(localStorage.getItem("tableOrders") || "[]");
+  let pending = orders.filter(o => o.status === "pending");
+  
+  if (pending.length === 0) {
+    alert("✅ No pending table orders right now.");
+    return;
+  }
+  
+  let html = `<h3>📋 Live Table Orders (${pending.length} pending)</h3>
+  <table border="1" width="100%" style="font-size:14px;">
+    <thead>
+      <tr><th>Table</th><th>Name</th><th>Items</th><th>Total</th><th>Time</th><th>Action</th></tr>
+    </thead>
+    <tbody>`;
+  
+  orders.forEach((ord, idx) => {
+    if (ord.status !== "pending") return;
+    
+    let itemList = ord.items.map(it => `${it.name} ×${it.qty}`).join("<br>");
+    
+    html += `<tr>
+      <td><strong>Table ${ord.table}</strong></td>
+      <td>${ord.name}</td>
+      <td>${itemList}</td>
+      <td>₹${ord.total}</td>
+      <td>${ord.timestamp}</td>
+      <td>
+        <button onclick="acceptOrder(${idx});" style="background:#2e7d32;color:white;margin:2px;">✅ Accept to Bill</button>
+        <button onclick="markCompleted(${idx});" style="background:#666;color:white;margin:2px;">✔ Mark Done</button>
+      </td>
+    </tr>`;
+  });
+  
+  html += `</tbody></table>
+  <button onclick="hideOrdersPanel()" style="width:auto;background:#d84315;margin-top:10px;">Close Panel</button>`;
+  
+  const panel = document.getElementById("ordersPanel");
+  panel.innerHTML = html;
+  panel.style.display = "block";
+}
+
+function hideOrdersPanel(){
+  document.getElementById("ordersPanel").style.display = "none";
+}
+
+function acceptOrder(idx){
+  let orders = JSON.parse(localStorage.getItem("tableOrders") || "[]");
+  let ord = orders[idx];
+  if (!ord || ord.status !== "pending") return;
+  
+  // Add customer's ordered items directly to staff bill
+  bill = bill.concat(ord.items.map(item => ({...item})));
+  render();
+  
+  ord.status = "accepted";
+  localStorage.setItem("tableOrders", JSON.stringify(orders));
+  
+  alert(`✅ Order from Table ${ord.table} added to your current bill!\nYou can now print the final bill.`);
+  hideOrdersPanel();
+}
+
+function markCompleted(idx){
+  let orders = JSON.parse(localStorage.getItem("tableOrders") || "[]");
+  let ord = orders[idx];
+  if (ord) {
+    ord.status = "completed";
+    localStorage.setItem("tableOrders", JSON.stringify(orders));
+  }
+  alert(`✔ Order for Table ${ord.table} marked as completed.`);
+  hideOrdersPanel();
+}
+
+// ====================== NEW QR CODE GENERATOR ======================
+function generateQRCode(){
+  const tableNo = document.getElementById("qrTableNum").value.trim();
+  if (!tableNo) {
+    alert("Please enter a table number");
+    return;
+  }
+  
+  // ⚠️ IMPORTANT: Replace this with your actual public URL after hosting!
+  const hostedUrl = "YOUR_HOSTED_URL_HERE";   // Example: "https://shree-shriyan-dhaba.netlify.app"
+  
+  if (hostedUrl === "YOUR_HOSTED_URL_HERE") {
+    alert("⚠️ Please host this file first and replace YOUR_HOSTED_URL_HERE with your real link!");
+    return;
+  }
+  
+  const orderLink = `${hostedUrl}?mode=customer&table=${tableNo}`;
+  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(orderLink)}`;
+  
+  document.getElementById("qrContainer").innerHTML = `
+    <img src="${qrSrc}" alt="QR for Table ${tableNo}" style="width:250px;height:250px;border:8px solid #d84315;border-radius:12px;">
+    <p style="margin-top:8px;font-weight:bold;">Table ${tableNo} QR Code</p>
+    <p style="font-size:13px;">Print this QR and place it on Table ${tableNo}.<br>Customers scan → sign in → order instantly!</p>
+  `;
+}
+
+// ====================== FINAL INITIALIZATION ======================
+initializeApp();
+
+// Original unload handler (keeps invoice counter working)
+window.onbeforeunload = function(){
+  localStorage.setItem("inv", ++count);
+  saveLocal();
+};
+</script>
+</body>
+</html>
