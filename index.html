@@ -193,7 +193,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// ====================== MENU ======================
+// ====================== MENU - REAL-TIME SYNC ======================
 let items = [];
 
 function loadAndListenMenu() {
@@ -202,6 +202,7 @@ function loadAndListenMenu() {
     if (data) {
       items = Object.values(data);
     } else {
+      // Default menu
       items = [
         {name: "Aloo Paratha", price: 50},
         {name: "Paneer Butter Masala", price: 180},
@@ -211,18 +212,24 @@ function loadAndListenMenu() {
       saveMenu();
     }
     renderStaffMenu();
-    if (document.getElementById("menuSection").style.display !== "none") loadCustomerMenu();
+    if (document.getElementById("menuSection") && 
+        document.getElementById("menuSection").style.display !== "none") {
+      loadCustomerMenu();
+    }
   });
 }
 
 function saveMenu() {
   const menuObj = {};
-  items.forEach((item, i) => menuObj[i] = item);
+  items.forEach((item, i) => {
+    menuObj[i] = item;
+  });
   db.ref('menu').set(menuObj);
 }
 
 function renderStaffMenu() {
   const select = document.getElementById("item");
+  if (!select) return;
   select.innerHTML = '<option value="">-- Select Item --</option>';
   items.forEach((item, idx) => {
     select.innerHTML += `<option value="${idx}">${item.name} - ₹${item.price}</option>`;
@@ -231,22 +238,28 @@ function renderStaffMenu() {
 
 function addNewMenuItem() {
   const name = document.getElementById("newItemName").value.trim();
-  const price = parseFloat(document.getElementById("newItemPrice").value);
-  if (!name || isNaN(price)) return alert("Please enter valid name and price");
+  const priceStr = document.getElementById("newItemPrice").value;
+  const price = parseFloat(priceStr);
 
-  const existing = items.findIndex(i => i.name.toLowerCase() === name.toLowerCase());
-  if (existing !== -1) {
-    items[existing].price = price;
-    alert(`Price updated for "${name}"`);
-  } else {
-    items.push({name, price});
-    alert(`New item "${name}" added`);
+  if (!name || isNaN(price) || price <= 0) {
+    return alert("Please enter valid item name and price");
   }
-  saveMenu();
+
+  const existingIndex = items.findIndex(i => i.name.toLowerCase() === name.toLowerCase());
+
+  if (existingIndex !== -1) {
+    items[existingIndex].price = price;
+    alert(`Price updated for "${name}" to ₹${price}`);
+  } else {
+    items.push({name: name, price: price});
+    alert(`New item "${name}" added successfully`);
+  }
+
+  saveMenu();   // This triggers real-time update on all devices
 }
 
 function showCurrentMenu() {
-  let msg = "Current Menu:\n\n";
+  let msg = "Current Menu (Real-time from Firebase):\n\n";
   items.forEach(i => msg += `• ${i.name} - ₹${i.price}\n`);
   alert(msg);
 }
@@ -258,7 +271,7 @@ document.getElementById("invoice").value = "INV" + String(count).padStart(3, '0'
 
 function addItem() {
   const idx = document.getElementById("item").value;
-  if (!idx) return alert("Select an item");
+  if (idx === "") return alert("Select an item");
   const item = items[idx];
   const qty = parseInt(document.getElementById("qty").value) || 1;
   bill.push({...item, qty});
@@ -267,10 +280,12 @@ function addItem() {
 
 function voiceAdd() {
   if (!('webkitSpeechRecognition' in window)) return alert("Voice not supported");
-  const rec = new webkitSpeechRecognition();
-  rec.onresult = e => {
-    const text = e.results[0][0].transcript.toLowerCase();
-    items.forEach(i => { if (text.includes(i.name.toLowerCase())) bill.push({...i, qty:1}); });
+  let rec = new webkitSpeechRecognition();
+  rec.onresult = function(e) {
+    let text = e.results[0][0].transcript.toLowerCase();
+    items.forEach(i => {
+      if (text.includes(i.name.toLowerCase())) bill.push({...i, qty:1});
+    });
     renderBill();
   };
   rec.start();
@@ -281,7 +296,7 @@ function del(i) { bill.splice(i,1); renderBill(); }
 function renderBill() {
   let html = "", total = 0;
   bill.forEach((b, i) => {
-    const t = b.qty * b.price;
+    let t = b.qty * b.price;
     total += t;
     html += `<tr><td>${b.name}</td><td>${b.qty}</td><td>₹${t}</td><td onclick="del(${i})" style="color:red;cursor:pointer;">❌</td></tr>`;
   });
@@ -321,8 +336,8 @@ function loadCustomerMenu() {
 }
 
 function addCustomerItem(idx) {
-  const item = items[idx];
-  const existing = customerOrder.find(o => o.name === item.name);
+  let item = items[idx];
+  let existing = customerOrder.find(o => o.name === item.name);
   if (existing) existing.qty += 1;
   else customerOrder.push({...item, qty: 1});
   renderCustomerOrder();
@@ -331,7 +346,7 @@ function addCustomerItem(idx) {
 function renderCustomerOrder() {
   let html = "", total = 0;
   customerOrder.forEach((b, i) => {
-    const t = b.qty * b.price;
+    let t = b.qty * b.price;
     total += t;
     html += `<tr><td>${b.name}</td><td>${b.qty}</td><td>₹${t}</td><td onclick="delCustomerItem(${i})" style="color:red;cursor:pointer;">❌</td></tr>`;
   });
@@ -342,7 +357,7 @@ function renderCustomerOrder() {
 function delCustomerItem(i) { customerOrder.splice(i,1); renderCustomerOrder(); }
 
 function clearCustomerOrder() {
-  if (confirm("Clear cart?")) { customerOrder = []; renderCustomerOrder(); }
+  if(confirm("Clear cart?")) { customerOrder = []; renderCustomerOrder(); }
 }
 
 function placeCustomerOrder() {
@@ -361,10 +376,8 @@ function placeCustomerOrder() {
     status: "pending"
   };
 
-  // Save to Firebase
   db.ref('tableOrders/' + orderId).set(orderData);
 
-  // Add to staff bill
   bill = customerOrder.map(i => ({...i}));
   renderBill();
   saveBillWithSync(true);
@@ -374,70 +387,74 @@ function placeCustomerOrder() {
   renderCustomerOrder();
 }
 
-// ====================== LIVE TABLE ORDERS (Fixed Sync + Auto Refresh) ======================
-let liveOrdersInterval = null;
+// ====================== LIVE TABLE ORDERS - REAL-TIME SYNC ======================
+let liveOrdersListener = null;
 
 function showTableOrders() {
   document.getElementById("ordersPanel").style.display = "block";
   renderLiveOrders();
-  if (liveOrdersInterval) clearInterval(liveOrdersInterval);
-  liveOrdersInterval = setInterval(renderLiveOrders, 5000); // every 5 seconds
+
+  // Real-time listener
+  if (liveOrdersListener) liveOrdersListener.off();
+  liveOrdersListener = db.ref('tableOrders');
+  liveOrdersListener.on('value', renderLiveOrders);
 }
 
 function hideOrdersPanel() {
   document.getElementById("ordersPanel").style.display = "none";
-  if (liveOrdersInterval) {
-    clearInterval(liveOrdersInterval);
-    liveOrdersInterval = null;
+  if (liveOrdersListener) {
+    liveOrdersListener.off();
+    liveOrdersListener = null;
   }
 }
 
-function renderLiveOrders() {
-  db.ref('tableOrders').once('value', (snapshot) => {
-    const data = snapshot.val() || {};
-    const orders = Object.values(data);
-    const pending = orders.filter(o => o && o.status === "pending");
+function renderLiveOrders(snapshot) {
+  const data = snapshot ? snapshot.val() : {};
+  const orders = Object.values(data || {});
+  const pending = orders.filter(o => o && o.status === "pending");
 
-    let html = `<h3>📋 Live Table Orders (${pending.length} pending)</h3>`;
-    html += `<p class="refresh-note">Auto-refreshing every 5 seconds...</p>`;
+  let html = `<h3>📋 Live Table Orders (${pending.length} pending) - Real-time</h3>`;
+  html += `<p class="refresh-note" style="color:green;">✅ Live Sync Enabled</p>`;
 
-    if (pending.length === 0) {
-      html += "<p>No pending orders at the moment.</p>";
-    } else {
-      html += `<table border="1" width="100%"><thead><tr><th>Table</th><th>Name</th><th>Items</th><th>Total</th><th>Time</th><th>Action</th></tr></thead><tbody>`;
-      pending.forEach(ord => {
-        const itemList = ord.items.map(it => `${it.name}×${it.qty}`).join("<br>");
-        html += `<tr>
-          <td><strong>Table ${ord.table}</strong></td>
-          <td>${ord.name}</td>
-          <td>${itemList}</td>
-          <td>₹${ord.total}</td>
-          <td>${ord.timestamp}</td>
-          <td><button onclick="acceptOrder(${ord.id})" style="background:#2e7d32;color:white;">✅ Accept</button></td>
-        </tr>`;
-      });
-      html += `</tbody></table>`;
-    }
+  if (pending.length === 0) {
+    html += "<p>No pending orders at the moment.</p>";
+  } else {
+    html += `<table border="1" width="100%"><thead><tr><th>Table</th><th>Name</th><th>Items</th><th>Total</th><th>Time</th><th>Action</th></tr></thead><tbody>`;
+    pending.forEach((ord) => {
+      const itemList = ord.items.map(it => `${it.name}×${it.qty}`).join("<br>");
+      html += `<tr>
+        <td><strong>Table ${ord.table}</strong></td>
+        <td>${ord.name}</td>
+        <td>${itemList}</td>
+        <td>₹${ord.total}</td>
+        <td>${ord.timestamp}</td>
+        <td><button onclick="acceptOrder(${ord.id})" style="background:#2e7d32;color:white;">✅ Accept</button></td>
+      </tr>`;
+    });
+    html += `</tbody></table>`;
+  }
 
-    html += `<button onclick="hideOrdersPanel()" style="margin-top:10px;background:#d84315;">Close Panel</button>`;
-    document.getElementById("ordersPanel").innerHTML = html;
-  });
+  html += `<button onclick="hideOrdersPanel()" style="margin-top:10px;background:#d84315;">Close Panel</button>`;
+  document.getElementById("ordersPanel").innerHTML = html;
 }
 
 function acceptOrder(orderId) {
   if (!confirm("Accept this order and add to current bill?")) return;
 
-  db.ref('tableOrders/' + orderId).once('value', (snapshot) => {
+  const orderRef = db.ref('tableOrders/' + orderId);
+  orderRef.once('value', (snapshot) => {
     const ord = snapshot.val();
-    if (!ord) return alert("Order not found or already accepted");
+    if (!ord || ord.status !== "pending") {
+      alert("Order not found or already accepted");
+      return;
+    }
 
     bill = bill.concat(ord.items.map(item => ({...item})));
     renderBill();
 
-    db.ref('tableOrders/' + orderId).update({ status: "accepted" });
+    orderRef.update({ status: "accepted" });
 
     alert(`✅ Order from Table ${ord.table} accepted and added to bill`);
-    renderLiveOrders();
   });
 }
 
@@ -446,7 +463,7 @@ function showSuccess(msg) {
   const toast = document.getElementById("successToast");
   toast.textContent = msg;
   toast.style.display = "block";
-  setTimeout(() => toast.style.display = "none", 3000);
+  setTimeout(() => { toast.style.display = "none"; }, 3000);
 }
 
 function saveBillWithSync(isFromCustomer) {
@@ -469,24 +486,28 @@ function saveBillWithSync(isFromCustomer) {
 }
 
 function printBill() { saveBillWithSync(false); window.print(); }
+
 function exportExcel() {
   let csv = "Item,Qty,Price\n";
   bill.forEach(b => csv += `${b.name},${b.qty},${b.price}\n`);
-  const blob = new Blob([csv], {type: "text/csv"});
-  const a = document.createElement("a");
+  let blob = new Blob([csv], {type: "text/csv"});
+  let a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "bill.csv";
   a.click();
 }
+
 function sendWhatsApp() {
   let msg = `Shree & Shriyan Dhaba\nInvoice: ${document.getElementById("invoice").value}\n\n`;
   bill.forEach(b => msg += `${b.name} x${b.qty}\n`);
   msg += `Total: ₹${document.getElementById("total").innerText}`;
   window.open("https://wa.me/?text=" + encodeURIComponent(msg));
 }
+
 function dailyReport() {
   alert("Daily Report - Check Firebase Console");
 }
+
 function generateQRCode() {
   const tableNo = document.getElementById("qrTableNum").value.trim();
   if (!tableNo) return alert("Enter table number");
@@ -506,6 +527,8 @@ function initializeApp() {
     document.getElementById('staffView').style.display = 'none';
     document.getElementById('customerView').style.display = 'block';
     document.getElementById('custTable').value = currentTable;
+  } else {
+    document.getElementById('staffView').style.display = 'block';
   }
 
   loadAndListenMenu();
@@ -513,7 +536,9 @@ function initializeApp() {
 
 initializeApp();
 
-window.onbeforeunload = () => localStorage.setItem("inv", ++count);
+window.onbeforeunload = function() {
+  localStorage.setItem("inv", ++count);
+};
 </script>
 </body>
 </html>
