@@ -390,24 +390,106 @@ window.printBill = function(){
   originalPrint();
 };
 
-// ====================== TABLE ORDERS & QR ======================
-function showTableOrders(){ /* same as previous version - omitted for brevity but fully functional */ 
-  alert("Table Orders panel - implement same logic as earlier version");
+// ====================== NEW TABLE ORDERS MANAGEMENT (STAFF) ======================
+function showTableOrders(){
+  let orders = JSON.parse(localStorage.getItem("tableOrders") || "[]");
+  let pending = orders.filter(o => o.status === "pending");
+  
+  if (pending.length === 0) {
+    alert("✅ No pending table orders right now.");
+    return;
+  }
+  
+  let html = `<h3>📋 Live Table Orders (${pending.length} pending)</h3>
+  <table border="1" width="100%" style="font-size:14px;">
+    <thead>
+      <tr><th>Table</th><th>Name</th><th>Items</th><th>Total</th><th>Time</th><th>Action</th></tr>
+    </thead>
+    <tbody>`;
+  
+  orders.forEach((ord, idx) => {
+    if (ord.status !== "pending") return;
+    
+    let itemList = ord.items.map(it => `${it.name} ×${it.qty}`).join("<br>");
+    
+    html += `<tr>
+      <td><strong>Table ${ord.table}</strong></td>
+      <td>${ord.name}</td>
+      <td>${itemList}</td>
+      <td>₹${ord.total}</td>
+      <td>${ord.timestamp}</td>
+      <td>
+        <button onclick="acceptOrder(${idx});" style="background:#2e7d32;color:white;margin:2px;">✅ Accept to Bill</button>
+        <button onclick="markCompleted(${idx});" style="background:#666;color:white;margin:2px;">✔ Mark Done</button>
+      </td>
+    </tr>`;
+  });
+  
+  html += `</tbody></table>
+  <button onclick="hideOrdersPanel()" style="width:auto;background:#d84315;margin-top:10px;">Close Panel</button>`;
+  
+  const panel = document.getElementById("ordersPanel");
+  panel.innerHTML = html;
+  panel.style.display = "block";
 }
 
+function hideOrdersPanel(){
+  document.getElementById("ordersPanel").style.display = "none";
+}
+
+function acceptOrder(idx){
+  let orders = JSON.parse(localStorage.getItem("tableOrders") || "[]");
+  let ord = orders[idx];
+  if (!ord || ord.status !== "pending") return;
+  
+  // Add customer's ordered items directly to staff bill
+  bill = bill.concat(ord.items.map(item => ({...item})));
+  render();
+  
+  ord.status = "accepted";
+  localStorage.setItem("tableOrders", JSON.stringify(orders));
+  
+  alert(`✅ Order from Table ${ord.table} added to your current bill!\nYou can now print the final bill.`);
+  hideOrdersPanel();
+}
+
+function markCompleted(idx){
+  let orders = JSON.parse(localStorage.getItem("tableOrders") || "[]");
+  let ord = orders[idx];
+  if (ord) {
+    ord.status = "completed";
+    localStorage.setItem("tableOrders", JSON.stringify(orders));
+  }
+  alert(`✔ Order for Table ${ord.table} marked as completed.`);
+  hideOrdersPanel();
+}
+
+// ====================== NEW QR CODE GENERATOR ======================
 function generateQRCode(){
   const tableNo = document.getElementById("qrTableNum").value.trim();
-  if (!tableNo) return alert("Enter table number");
+  if (!tableNo) {
+    alert("Please enter a table number");
+    return;
+  }
   
-  const hostedUrl = window.location.href.split('?')[0]; // current page URL
+  // ⚠️ IMPORTANT: Replace this with your actual public URL after hosting!
+  const hostedUrl = "https://jogendradipeng11-png.github.io/SHREE-AND-SHRIYAN-EXPRESSS-DHABA/";   // Example: "https://shree-shriyan-dhaba.netlify.app"
+  
+  if (hostedUrl === "YOUR_HOSTED_URL_HERE") {
+    alert("⚠️ Please host this file first and replace YOUR_HOSTED_URL_HERE with your real link!");
+    return;
+  }
+  
   const orderLink = `${hostedUrl}?mode=customer&table=${tableNo}`;
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(orderLink)}`;
   
   document.getElementById("qrContainer").innerHTML = `
-    <img src="${qrSrc}" style="width:250px;border:8px solid #d84315;border-radius:12px;">
-    <p>Table ${tableNo} QR Code - Print & Place on table</p>
+    <img src="${qrSrc}" alt="QR for Table ${tableNo}" style="width:250px;height:250px;border:8px solid #d84315;border-radius:12px;">
+    <p style="margin-top:8px;font-weight:bold;">Table ${tableNo} QR Code</p>
+    <p style="font-size:13px;">Print this QR and place it on Table ${tableNo}.<br>Customers scan → sign in → order instantly!</p>
   `;
 }
+
 
 // ====================== INITIALIZE ======================
 function initializeApp() {
