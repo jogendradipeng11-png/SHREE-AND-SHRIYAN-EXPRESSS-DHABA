@@ -193,12 +193,11 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// ====================== MENU - REAL-TIME FIREBASE ======================
+// ====================== MENU ======================
 let items = [];
 
 function loadAndListenMenu() {
-  const menuRef = db.ref('menu');
-  menuRef.on('value', (snapshot) => {
+  db.ref('menu').on('value', (snapshot) => {
     const data = snapshot.val();
     if (data) {
       items = Object.values(data);
@@ -212,22 +211,18 @@ function loadAndListenMenu() {
       saveMenu();
     }
     renderStaffMenu();
-    if (document.getElementById("menuSection") && 
-        document.getElementById("menuSection").style.display !== "none") {
-      loadCustomerMenu();
-    }
+    if (document.getElementById("menuSection").style.display !== "none") loadCustomerMenu();
   });
 }
 
 function saveMenu() {
   const menuObj = {};
-  items.forEach((item, i) => { menuObj[i] = item; });
+  items.forEach((item, i) => menuObj[i] = item);
   db.ref('menu').set(menuObj);
 }
 
 function renderStaffMenu() {
   const select = document.getElementById("item");
-  if (!select) return;
   select.innerHTML = '<option value="">-- Select Item --</option>';
   items.forEach((item, idx) => {
     select.innerHTML += `<option value="${idx}">${item.name} - ₹${item.price}</option>`;
@@ -244,8 +239,8 @@ function addNewMenuItem() {
     items[existing].price = price;
     alert(`Price updated for "${name}"`);
   } else {
-    items.push({name: name, price: price});
-    alert(`New item "${name}" added successfully`);
+    items.push({name, price});
+    alert(`New item "${name}" added`);
   }
   saveMenu();
 }
@@ -263,7 +258,7 @@ document.getElementById("invoice").value = "INV" + String(count).padStart(3, '0'
 
 function addItem() {
   const idx = document.getElementById("item").value;
-  if (idx === "") return alert("Select an item");
+  if (!idx) return alert("Select an item");
   const item = items[idx];
   const qty = parseInt(document.getElementById("qty").value) || 1;
   bill.push({...item, qty});
@@ -272,12 +267,10 @@ function addItem() {
 
 function voiceAdd() {
   if (!('webkitSpeechRecognition' in window)) return alert("Voice not supported");
-  let rec = new webkitSpeechRecognition();
-  rec.onresult = function(e) {
-    let text = e.results[0][0].transcript.toLowerCase();
-    items.forEach(i => {
-      if (text.includes(i.name.toLowerCase())) bill.push({...i, qty:1});
-    });
+  const rec = new webkitSpeechRecognition();
+  rec.onresult = e => {
+    const text = e.results[0][0].transcript.toLowerCase();
+    items.forEach(i => { if (text.includes(i.name.toLowerCase())) bill.push({...i, qty:1}); });
     renderBill();
   };
   rec.start();
@@ -288,7 +281,7 @@ function del(i) { bill.splice(i,1); renderBill(); }
 function renderBill() {
   let html = "", total = 0;
   bill.forEach((b, i) => {
-    let t = b.qty * b.price;
+    const t = b.qty * b.price;
     total += t;
     html += `<tr><td>${b.name}</td><td>${b.qty}</td><td>₹${t}</td><td onclick="del(${i})" style="color:red;cursor:pointer;">❌</td></tr>`;
   });
@@ -328,8 +321,8 @@ function loadCustomerMenu() {
 }
 
 function addCustomerItem(idx) {
-  let item = items[idx];
-  let existing = customerOrder.find(o => o.name === item.name);
+  const item = items[idx];
+  const existing = customerOrder.find(o => o.name === item.name);
   if (existing) existing.qty += 1;
   else customerOrder.push({...item, qty: 1});
   renderCustomerOrder();
@@ -338,7 +331,7 @@ function addCustomerItem(idx) {
 function renderCustomerOrder() {
   let html = "", total = 0;
   customerOrder.forEach((b, i) => {
-    let t = b.qty * b.price;
+    const t = b.qty * b.price;
     total += t;
     html += `<tr><td>${b.name}</td><td>${b.qty}</td><td>₹${t}</td><td onclick="delCustomerItem(${i})" style="color:red;cursor:pointer;">❌</td></tr>`;
   });
@@ -349,16 +342,17 @@ function renderCustomerOrder() {
 function delCustomerItem(i) { customerOrder.splice(i,1); renderCustomerOrder(); }
 
 function clearCustomerOrder() {
-  if(confirm("Clear cart?")) { customerOrder = []; renderCustomerOrder(); }
+  if (confirm("Clear cart?")) { customerOrder = []; renderCustomerOrder(); }
 }
 
 function placeCustomerOrder() {
   if (customerOrder.length === 0) return alert("Cart is empty!");
 
   const total = parseFloat(document.getElementById("custTotal").innerText);
+  const orderId = Date.now();
 
   const orderData = {
-    id: Date.now(),
+    id: orderId,
     table: currentTable,
     name: currentName,
     items: JSON.parse(JSON.stringify(customerOrder)),
@@ -368,7 +362,7 @@ function placeCustomerOrder() {
   };
 
   // Save to Firebase
-  db.ref('tableOrders/' + orderData.id).set(orderData);
+  db.ref('tableOrders/' + orderId).set(orderData);
 
   // Add to staff bill
   bill = customerOrder.map(i => ({...i}));
@@ -376,21 +370,18 @@ function placeCustomerOrder() {
   saveBillWithSync(true);
 
   alert(`✅ Order Placed Successfully for Table ${currentTable}`);
-
   customerOrder = [];
   renderCustomerOrder();
 }
 
-// ====================== LIVE TABLE ORDERS WITH AUTO-REFRESH ======================
+// ====================== LIVE TABLE ORDERS (Fixed Sync + Auto Refresh) ======================
 let liveOrdersInterval = null;
 
 function showTableOrders() {
   document.getElementById("ordersPanel").style.display = "block";
   renderLiveOrders();
-
-  // Start auto-refresh every 5 seconds
   if (liveOrdersInterval) clearInterval(liveOrdersInterval);
-  liveOrdersInterval = setInterval(renderLiveOrders, 5000);
+  liveOrdersInterval = setInterval(renderLiveOrders, 5000); // every 5 seconds
 }
 
 function hideOrdersPanel() {
@@ -402,11 +393,10 @@ function hideOrdersPanel() {
 }
 
 function renderLiveOrders() {
-  const ordersRef = db.ref('tableOrders');
-  ordersRef.once('value', (snapshot) => {
-    const data = snapshot.val();
-    let orders = data ? Object.values(data) : [];
-    let pending = orders.filter(o => o.status === "pending");
+  db.ref('tableOrders').once('value', (snapshot) => {
+    const data = snapshot.val() || {};
+    const orders = Object.values(data);
+    const pending = orders.filter(o => o && o.status === "pending");
 
     let html = `<h3>📋 Live Table Orders (${pending.length} pending)</h3>`;
     html += `<p class="refresh-note">Auto-refreshing every 5 seconds...</p>`;
@@ -415,16 +405,15 @@ function renderLiveOrders() {
       html += "<p>No pending orders at the moment.</p>";
     } else {
       html += `<table border="1" width="100%"><thead><tr><th>Table</th><th>Name</th><th>Items</th><th>Total</th><th>Time</th><th>Action</th></tr></thead><tbody>`;
-      
-      pending.forEach((ord) => {
-        let itemList = ord.items.map(it => `${it.name}×${it.qty}`).join("<br>");
+      pending.forEach(ord => {
+        const itemList = ord.items.map(it => `${it.name}×${it.qty}`).join("<br>");
         html += `<tr>
           <td><strong>Table ${ord.table}</strong></td>
           <td>${ord.name}</td>
           <td>${itemList}</td>
           <td>₹${ord.total}</td>
           <td>${ord.timestamp}</td>
-          <td><button onclick="acceptOrder('${ord.id}')" style="background:#2e7d32;color:white;">✅ Accept</button></td>
+          <td><button onclick="acceptOrder(${ord.id})" style="background:#2e7d32;color:white;">✅ Accept</button></td>
         </tr>`;
       });
       html += `</tbody></table>`;
@@ -438,18 +427,17 @@ function renderLiveOrders() {
 function acceptOrder(orderId) {
   if (!confirm("Accept this order and add to current bill?")) return;
 
-  const orderRef = db.ref('tableOrders/' + orderId);
-  orderRef.once('value', (snapshot) => {
+  db.ref('tableOrders/' + orderId).once('value', (snapshot) => {
     const ord = snapshot.val();
-    if (!ord) return alert("Order not found");
+    if (!ord) return alert("Order not found or already accepted");
 
     bill = bill.concat(ord.items.map(item => ({...item})));
     renderBill();
 
-    orderRef.update({ status: "accepted" });
+    db.ref('tableOrders/' + orderId).update({ status: "accepted" });
 
     alert(`✅ Order from Table ${ord.table} accepted and added to bill`);
-    renderLiveOrders(); // Refresh immediately
+    renderLiveOrders();
   });
 }
 
@@ -458,7 +446,7 @@ function showSuccess(msg) {
   const toast = document.getElementById("successToast");
   toast.textContent = msg;
   toast.style.display = "block";
-  setTimeout(() => { toast.style.display = "none"; }, 3000);
+  setTimeout(() => toast.style.display = "none", 3000);
 }
 
 function saveBillWithSync(isFromCustomer) {
@@ -484,8 +472,8 @@ function printBill() { saveBillWithSync(false); window.print(); }
 function exportExcel() {
   let csv = "Item,Qty,Price\n";
   bill.forEach(b => csv += `${b.name},${b.qty},${b.price}\n`);
-  let blob = new Blob([csv], {type: "text/csv"});
-  let a = document.createElement("a");
+  const blob = new Blob([csv], {type: "text/csv"});
+  const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "bill.csv";
   a.click();
@@ -497,7 +485,7 @@ function sendWhatsApp() {
   window.open("https://wa.me/?text=" + encodeURIComponent(msg));
 }
 function dailyReport() {
-  alert("Daily Report - Check Firebase Console or Google Sheets");
+  alert("Daily Report - Check Firebase Console");
 }
 function generateQRCode() {
   const tableNo = document.getElementById("qrTableNum").value.trim();
@@ -518,8 +506,6 @@ function initializeApp() {
     document.getElementById('staffView').style.display = 'none';
     document.getElementById('customerView').style.display = 'block';
     document.getElementById('custTable').value = currentTable;
-  } else {
-    document.getElementById('staffView').style.display = 'block';
   }
 
   loadAndListenMenu();
@@ -527,9 +513,7 @@ function initializeApp() {
 
 initializeApp();
 
-window.onbeforeunload = function() {
-  localStorage.setItem("inv", ++count);
-};
+window.onbeforeunload = () => localStorage.setItem("inv", ++count);
 </script>
 </body>
 </html>
