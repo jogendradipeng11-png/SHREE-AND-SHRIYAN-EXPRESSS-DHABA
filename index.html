@@ -84,7 +84,6 @@
 </head>
 <body>
 <div class="container">
-
     <!-- STAFF POS VIEW -->
     <div id="staffView">
         <div class="logo">
@@ -92,43 +91,36 @@
             <h2>Shree & Shriyan Dhaba</h2>
             <p style="text-align:center;color:#d84315;font-weight:bold;">STAFF POS</p>
         </div>
-
         <input id="customerName" placeholder="Customer Name (optional)">
         <input id="invoice" readonly>
-
         <select id="item"></select>
         <input id="qty" type="number" placeholder="Qty" value="1">
-
         <button onclick="addItem()">➕ Add Item</button>
         <button onclick="voiceAdd()">🎤 Voice Add</button>
-
         <table border="1">
             <thead><tr><th>Item</th><th>Qty</th><th>Amt</th><th>X</th></tr></thead>
             <tbody id="bill"></tbody>
         </table>
-
         <label><input type="checkbox" id="gst" checked> GST 5%</label>
         <div class="total">Total: ₹ <span id="total">0</span></div>
-
         <button onclick="printBill()">🧾 Print Bill</button>
         <button onclick="exportExcel()">📊 Export Excel</button>
         <button onclick="sendWhatsApp()">📲 WhatsApp</button>
         <button onclick="dailyReport()">📊 Daily Report</button>
         <button onclick="showTableOrders()" style="background:#d84315;">📋 Live Table Orders</button>
-
+        
         <!-- Menu Management -->
         <h4>Manage Menu (Real-time Sync)</h4>
         <input id="newItemName" placeholder="New Item Name">
         <input id="newItemPrice" type="number" placeholder="Price (₹)">
         <button onclick="addNewMenuItem()" style="background:#ff9800;">➕ Add / Update Item</button>
         <button onclick="showCurrentMenu()" style="background:#666;">📋 Show Current Menu</button>
-
+        
         <!-- QR Generator -->
         <h4>Generate QR for Table Ordering</h4>
         <input id="qrTableNum" type="number" placeholder="Table Number">
         <button onclick="generateQRCode()" style="background:#ff9800;">📱 Generate Table QR</button>
         <div id="qrContainer" style="text-align:center;margin:15px 0;"></div>
-
         <div id="ordersPanel" style="display:none;"></div>
     </div>
 
@@ -139,26 +131,22 @@
             <h2>Shree & Shriyan Dhaba</h2>
             <p style="text-align:center;color:#2e7d32;font-weight:bold;">TABLE ORDERING</p>
         </div>
-
         <div id="signInSection">
             <h3 style="text-align:center;">Welcome!</h3>
             <input id="custTable" type="number" placeholder="Your Table Number">
             <input id="custName" placeholder="Your Name (optional)">
             <button onclick="joinTable()" style="background:#d84315;font-size:18px;">✅ Start Ordering</button>
         </div>
-
         <div id="menuSection" style="display:none;">
             <h3 style="text-align:center;">Menu for Table <span id="displayTable" style="color:#d84315;"></span></h3>
             <p style="text-align:center;">Hello, <span id="displayName"></span>!</p>
             <div id="menuItems"></div>
-
             <h3>Your Order</h3>
             <table border="1">
                 <thead><tr><th>Item</th><th>Qty</th><th>Amt</th><th>X</th></tr></thead>
                 <tbody id="customerBill"></tbody>
             </table>
             <div class="total">Your Total: ₹ <span id="custTotal">0</span></div>
-
             <button onclick="placeCustomerOrder()" style="background:#d84315;">✅ Place Order for Kitchen</button>
             <button onclick="clearCustomerOrder()" style="background:#666;">🗑️ Clear Cart</button>
         </div>
@@ -171,7 +159,6 @@
 <!-- Firebase Scripts -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-
 <script>
 // ====================== FIREBASE CONFIG ======================
 const firebaseConfig = {
@@ -183,34 +170,26 @@ const firebaseConfig = {
   messagingSenderId: "1044375723943",
   appId: "1:1044375723943:web:828c2351f76858f870e082"
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// ====================== MENU - REAL-TIME FIREBASE ======================
+// ====================== MENU ======================
 let items = [];
-
 function loadAndListenMenu() {
   const menuRef = db.ref('menu');
-
-  // Initial load + real-time listener
   menuRef.on('value', (snapshot) => {
     const data = snapshot.val();
-    
     if (data) {
       items = Object.values(data);
     } else {
-      // Default menu if nothing in Firebase yet
       items = [
         {name: "Aloo Paratha", price: 50},
         {name: "Paneer Butter Masala", price: 180},
         {name: "Dal Tadka", price: 150},
         {name: "Naan", price: 40}
       ];
-      saveMenu(); // Push default menu to Firebase on first run
+      saveMenu();
     }
-
-    // Update both views whenever menu changes
     renderStaffMenu();
     if (document.getElementById("menuSection") && 
         document.getElementById("menuSection").style.display !== "none") {
@@ -218,15 +197,11 @@ function loadAndListenMenu() {
     }
   });
 }
-
 function saveMenu() {
   const menuObj = {};
-  items.forEach((item, i) => {
-    menuObj[i] = item;
-  });
+  items.forEach((item, i) => menuObj[i] = item);
   db.ref('menu').set(menuObj);
 }
-
 function renderStaffMenu() {
   const select = document.getElementById("item");
   if (!select) return;
@@ -235,12 +210,11 @@ function renderStaffMenu() {
     select.innerHTML += `<option value="${idx}">${item.name} - ₹${item.price}</option>`;
   });
 }
-
 function addNewMenuItem() {
   const name = document.getElementById("newItemName").value.trim();
   const price = parseFloat(document.getElementById("newItemPrice").value);
   if (!name || isNaN(price)) return alert("Please enter valid name and price");
-
+  
   const existing = items.findIndex(i => i.name.toLowerCase() === name.toLowerCase());
   if (existing !== -1) {
     items[existing].price = price;
@@ -251,9 +225,8 @@ function addNewMenuItem() {
   }
   saveMenu();
 }
-
 function showCurrentMenu() {
-  let msg = "Current Menu (from Firebase):\n\n";
+  let msg = "Current Menu:\n\n";
   items.forEach(i => msg += `• ${i.name} - ₹${i.price}\n`);
   alert(msg);
 }
@@ -271,7 +244,6 @@ function addItem() {
   bill.push({...item, qty});
   renderBill();
 }
-
 function voiceAdd() {
   if (!('webkitSpeechRecognition' in window)) return alert("Voice not supported");
   let rec = new webkitSpeechRecognition();
@@ -284,9 +256,7 @@ function voiceAdd() {
   };
   rec.start();
 }
-
 function del(i) { bill.splice(i,1); renderBill(); }
-
 function renderBill() {
   let html = "", total = 0;
   bill.forEach((b, i) => {
@@ -308,12 +278,11 @@ function joinTable() {
   currentTable = document.getElementById("custTable").value.trim();
   currentName = document.getElementById("custName").value.trim() || "Guest";
   if (!currentTable) return alert("Please enter Table Number");
-
+  
   document.getElementById("signInSection").style.display = "none";
   document.getElementById("menuSection").style.display = "block";
   document.getElementById("displayTable").innerText = currentTable;
   document.getElementById("displayName").innerText = currentName;
-
   loadCustomerMenu();
   renderCustomerOrder();
 }
@@ -348,37 +317,50 @@ function renderCustomerOrder() {
   document.getElementById("custTotal").innerText = total.toFixed(2);
 }
 
-function delCustomerItem(i) { customerOrder.splice(i,1); renderCustomerOrder(); }
-
-function clearCustomerOrder() {
-  if(confirm("Clear cart?")) { customerOrder = []; renderCustomerOrder(); }
+function delCustomerItem(i) { 
+  customerOrder.splice(i,1); 
+  renderCustomerOrder(); 
 }
 
+function clearCustomerOrder() {
+  if(confirm("Clear cart?")) { 
+    customerOrder = []; 
+    renderCustomerOrder(); 
+  }
+}
+
+// ==================== FIXED PLACE ORDER FUNCTION ====================
 function placeCustomerOrder() {
   if (customerOrder.length === 0) return alert("Cart is empty!");
 
   let orders = JSON.parse(localStorage.getItem("tableOrders") || "[]");
-  let total = parseFloat(document.getElementById("custTotal").innerText);
-
-  orders.push({
+  
+  const orderData = {
     id: Date.now(),
     table: currentTable,
     name: currentName,
     items: JSON.parse(JSON.stringify(customerOrder)),
-    total: total,
+    total: parseFloat(document.getElementById("custTotal").innerText),
     timestamp: new Date().toLocaleString(),
     status: "pending"
-  });
+  };
 
+  orders.push(orderData);
   localStorage.setItem("tableOrders", JSON.stringify(orders));
 
-  bill = customerOrder.map(i => ({...i}));
-  renderBill();
-  saveBillWithSync(true);
+  // Show success message
+  showSuccess(`✅ Order Placed for Table ${currentTable}`);
 
-  alert(`✅ Order Placed for Table ${currentTable}`);
+  // Clear customer cart
   customerOrder = [];
   renderCustomerOrder();
+
+  // Refresh live orders panel if it's open
+  if (document.getElementById("ordersPanel").style.display !== "none") {
+    renderLiveOrders();
+  }
+
+  alert(`✅ Order for Table ${currentTable} sent to kitchen successfully!`);
 }
 
 // ====================== LIVE TABLE ORDERS ======================
@@ -387,35 +369,50 @@ function showTableOrders() {
   renderLiveOrders();
 }
 
-function hideOrdersPanel() { document.getElementById("ordersPanel").style.display = "none"; }
+function hideOrdersPanel() { 
+  document.getElementById("ordersPanel").style.display = "none"; 
+}
 
 function renderLiveOrders() {
   let orders = JSON.parse(localStorage.getItem("tableOrders") || "[]");
   let pending = orders.filter(o => o.status === "pending");
+  
   let html = `<h3>📋 Live Table Orders (${pending.length} pending)</h3>`;
+  
   if (pending.length === 0) {
     html += "<p>No pending orders.</p>";
   } else {
     html += `<table border="1" width="100%"><thead><tr><th>Table</th><th>Name</th><th>Items</th><th>Total</th><th>Time</th><th>Action</th></tr></thead><tbody>`;
     pending.forEach((ord, idx) => {
       let itemList = ord.items.map(it => `${it.name}×${it.qty}`).join("<br>");
-      html += `<tr><td><strong>Table ${ord.table}</strong></td><td>${ord.name}</td><td>${itemList}</td><td>₹${ord.total}</td><td>${ord.timestamp}</td><td><button onclick="acceptOrder(${idx})" style="background:#2e7d32;color:white;">✅ Accept</button></td></tr>`;
+      html += `<tr>
+        <td><strong>Table ${ord.table}</strong></td>
+        <td>${ord.name}</td>
+        <td>${itemList}</td>
+        <td>₹${ord.total}</td>
+        <td>${ord.timestamp}</td>
+        <td><button onclick="acceptOrder(${idx})" style="background:#2e7d32;color:white;">✅ Accept</button></td>
+      </tr>`;
     });
     html += `</tbody></table>`;
   }
+  
   html += `<button onclick="hideOrdersPanel()" style="margin-top:10px;background:#d84315;">Close</button>`;
   document.getElementById("ordersPanel").innerHTML = html;
 }
 
 function acceptOrder(idx) {
   let orders = JSON.parse(localStorage.getItem("tableOrders") || "[]");
-  let ord = orders[idx];
-  if (!ord) return;
+  if (!orders[idx]) return;
+  
+  const ord = orders[idx];
   bill = bill.concat(ord.items.map(item => ({...item})));
   renderBill();
+  
   ord.status = "accepted";
   localStorage.setItem("tableOrders", JSON.stringify(orders));
-  alert(`Order from Table ${ord.table} added to bill`);
+  
+  alert(`Order from Table ${ord.table} added to current bill`);
   renderLiveOrders();
 }
 
@@ -432,7 +429,7 @@ function saveBillWithSync(isFromCustomer) {
   const customerName = isFromCustomer ? currentName : (document.getElementById("customerName").value || "Walk-in");
   const tableNumber = isFromCustomer ? currentTable : "N/A";
   const total = isFromCustomer ? document.getElementById("custTotal").innerText : document.getElementById("total").innerText;
-
+  
   const billData = {
     timestamp: new Date().toLocaleString(),
     invoice: invoice,
@@ -441,12 +438,16 @@ function saveBillWithSync(isFromCustomer) {
     total: parseFloat(total) || 0,
     items: (isFromCustomer ? customerOrder : bill).map(item => `${item.name} x${item.qty}`).join(" | ")
   };
-
+  
   db.ref('bills/' + Date.now()).set(billData);
   showSuccess("✅ Bill saved to Firebase");
 }
 
-function printBill() { saveBillWithSync(false); window.print(); }
+function printBill() { 
+  saveBillWithSync(false); 
+  window.print(); 
+}
+
 function exportExcel() {
   let csv = "Item,Qty,Price\n";
   bill.forEach(b => csv += `${b.name},${b.qty},${b.price}\n`);
@@ -456,15 +457,18 @@ function exportExcel() {
   a.download = "bill.csv";
   a.click();
 }
+
 function sendWhatsApp() {
   let msg = `Shree & Shriyan Dhaba\nInvoice: ${document.getElementById("invoice").value}\n\n`;
   bill.forEach(b => msg += `${b.name} x${b.qty}\n`);
   msg += `Total: ₹${document.getElementById("total").innerText}`;
   window.open("https://wa.me/?text=" + encodeURIComponent(msg));
 }
+
 function dailyReport() {
   alert("Daily Report - Check Firebase or Google Sheet");
 }
+
 function generateQRCode() {
   const tableNo = document.getElementById("qrTableNum").value.trim();
   if (!tableNo) return alert("Enter table number");
@@ -479,7 +483,7 @@ function initializeApp() {
   const urlParams = new URLSearchParams(window.location.search);
   const mode = urlParams.get('mode');
   currentTable = urlParams.get('table') || '';
-
+  
   if (mode === 'customer') {
     document.getElementById('staffView').style.display = 'none';
     document.getElementById('customerView').style.display = 'block';
@@ -487,8 +491,7 @@ function initializeApp() {
   } else {
     document.getElementById('staffView').style.display = 'block';
   }
-
-  // Start Firebase menu sync
+  
   loadAndListenMenu();
 }
 
