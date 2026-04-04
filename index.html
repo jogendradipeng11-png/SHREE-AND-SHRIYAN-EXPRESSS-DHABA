@@ -86,6 +86,82 @@
         text-align: center;
         margin-top: 5px;
     }
+
+    /* CUSTOMIZED PRINT LAYOUT */
+    @media print {
+        body * { visibility: hidden; }
+        #printArea, #printArea * { visibility: visible; }
+        #printArea {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            max-width: 380px;           /* Good for 80mm thermal paper */
+            margin: 0 auto;
+            padding: 15px 20px;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.4;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        .print-header {
+            margin-bottom: 20px;
+            border-bottom: 2px dashed #d84315;
+            padding-bottom: 15px;
+        }
+        .print-header img { width: 90px; margin-bottom: 8px; }
+        .print-title {
+            font-size: 26px;
+            font-weight: bold;
+            color: #d84315;
+            margin: 5px 0;
+        }
+        .print-subtitle {
+            font-size: 15px;
+            color: #555;
+            margin-bottom: 10px;
+        }
+        .print-info {
+            text-align: left;
+            margin: 15px 0;
+            font-size: 15px;
+        }
+        .print-info strong { color: #d84315; }
+        table.print-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+        table.print-table th {
+            background: #fff3e0;
+            border-bottom: 2px solid #d84315;
+            padding: 8px 5px;
+            text-align: left;
+        }
+        table.print-table td {
+            padding: 8px 5px;
+            border-bottom: 1px dotted #ccc;
+            text-align: left;
+        }
+        .amount { text-align: right; }
+        .print-total {
+            font-size: 22px;
+            font-weight: bold;
+            color: #d84315;
+            margin: 20px 0 10px;
+            border-top: 2px dashed #d84315;
+            padding-top: 12px;
+        }
+        .print-footer {
+            margin-top: 25px;
+            font-size: 13px;
+            color: #444;
+            border-top: 1px dashed #ccc;
+            padding-top: 10px;
+        }
+    }
 </style>
 </head>
 <body>
@@ -115,14 +191,12 @@
         <button onclick="dailyReport()">📊 Daily Report</button>
         <button onclick="showTableOrders()" style="background:#d84315;">📋 Live Table Orders</button>
 
-        <!-- Menu Management -->
         <h4>Manage Menu (Real-time Sync)</h4>
         <input id="newItemName" placeholder="New Item Name">
         <input id="newItemPrice" type="number" placeholder="Price (₹)">
         <button onclick="addNewMenuItem()" style="background:#ff9800;">➕ Add / Update Item</button>
         <button onclick="showCurrentMenu()" style="background:#666;">📋 Show Current Menu</button>
 
-        <!-- QR Generator -->
         <h4>Generate QR for Table Ordering</h4>
         <input id="qrTableNum" type="number" placeholder="Table Number">
         <button onclick="generateQRCode()" style="background:#ff9800;">📱 Generate Table QR</button>
@@ -131,7 +205,7 @@
         <div id="ordersPanel" style="display:none;"></div>
     </div>
 
-    <!-- CUSTOMER VIEW -->
+    <!-- CUSTOMER VIEW (unchanged) -->
     <div id="customerView" style="display:none;">
         <div class="logo">
             <img src="LOGO.png" alt="Logo">
@@ -157,6 +231,44 @@
             <button onclick="placeCustomerOrder()" style="background:#d84315;">✅ Place Order for Kitchen</button>
             <button onclick="clearCustomerOrder()" style="background:#666;">🗑️ Clear Cart</button>
         </div>
+    </div>
+</div>
+
+<!-- Hidden Print Area with Customized Layout -->
+<div id="printArea" style="display:none;">
+    <div class="print-header">
+        <img src="LOGO.png" alt="Logo">
+        <div class="print-title">Shree & Shriyan Dhaba</div>
+        <div class="print-subtitle">Authentic Punjabi • Fresh & Tasty Food</div>
+    </div>
+
+    <div class="print-info">
+        <strong>Invoice No:</strong> <span id="printInvoice"></span><br>
+        <strong>Customer:</strong> <span id="printCustomer"></span><br>
+        <strong>Table No:</strong> <span id="printTable"></span><br>
+        <strong>Date & Time:</strong> <span id="printDate"></span>
+    </div>
+
+    <table class="print-table" id="printTableItems">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Qty</th>
+                <th>Rate</th>
+                <th class="amount">Amount</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <div class="print-total">
+        Grand Total: ₹ <span id="printTotal"></span>
+    </div>
+
+    <div class="print-footer">
+        Thank You! Please Visit Again 😊<br>
+        <small>GST 5% Applied (where applicable)</small><br>
+        <small>Have a Great Day!</small>
     </div>
 </div>
 
@@ -193,33 +305,24 @@ let liveOrdersListener = null;
 function loadAndListenMenu() {
   db.ref('menu').on('value', (snapshot) => {
     const data = snapshot.val();
-    if (data) {
-      items = Object.values(data);
-    } else {
-      items = [
-        {name: "Aloo Paratha", price: 50},
-        {name: "Paneer Butter Masala", price: 180},
-        {name: "Dal Tadka", price: 150},
-        {name: "Naan", price: 40}
-      ];
+    if (data) items = Object.values(data);
+    else {
+      items = [{name: "Aloo Paratha", price: 50},{name: "Paneer Butter Masala", price: 180},{name: "Dal Tadka", price: 150},{name: "Naan", price: 40}];
       saveMenu();
     }
     renderStaffMenu();
-    if (document.getElementById("menuSection")?.style.display !== "none") {
-      loadCustomerMenu();
-    }
+    if (document.getElementById("menuSection")?.style.display !== "none") loadCustomerMenu();
   });
 }
 
 function saveMenu() {
   const menuObj = {};
-  items.forEach((item, i) => { menuObj[i] = item; });
+  items.forEach((item, i) => menuObj[i] = item);
   db.ref('menu').set(menuObj);
 }
 
 function renderStaffMenu() {
   const select = document.getElementById("item");
-  if (!select) return;
   select.innerHTML = '<option value="">-- Select Item --</option>';
   items.forEach((item, idx) => {
     select.innerHTML += `<option value="${idx}">${item.name} - ₹${item.price}</option>`;
@@ -230,7 +333,6 @@ function addNewMenuItem() {
   const name = document.getElementById("newItemName").value.trim();
   const price = parseFloat(document.getElementById("newItemPrice").value);
   if (!name || isNaN(price) || price <= 0) return alert("Please enter valid item name and price");
-
   const existingIndex = items.findIndex(i => i.name.toLowerCase() === name.toLowerCase());
   if (existingIndex !== -1) {
     items[existingIndex].price = price;
@@ -243,7 +345,7 @@ function addNewMenuItem() {
 }
 
 function showCurrentMenu() {
-  let msg = "Current Menu (Real-time):\n\n";
+  let msg = "Current Menu:\n\n";
   items.forEach(i => msg += `• ${i.name} - ₹${i.price}\n`);
   alert(msg);
 }
@@ -265,9 +367,7 @@ function voiceAdd() {
   let rec = new webkitSpeechRecognition();
   rec.onresult = function(e) {
     let text = e.results[0][0].transcript.toLowerCase();
-    items.forEach(i => {
-      if (text.includes(i.name.toLowerCase())) bill.push({...i, qty:1});
-    });
+    items.forEach(i => { if (text.includes(i.name.toLowerCase())) bill.push({...i, qty:1}); });
     renderBill();
   };
   rec.start();
@@ -287,26 +387,85 @@ function renderBill() {
   document.getElementById("total").innerText = total.toFixed(2);
 }
 
-// ====================== AUTO CLEAR BILL FUNCTION ======================
+// ====================== AUTO CLEAR ======================
 function clearBill() {
   bill = [];
   renderBill();
   document.getElementById("customerName").value = "";
-  
-  // Increment invoice number
   count++;
   localStorage.setItem("inv", count);
   document.getElementById("invoice").value = "INV" + String(count).padStart(3, '0');
-  
   showSuccess("✅ Bill Printed & Cleared Successfully");
 }
 
-// ====================== CUSTOMER ORDERING ======================
+// ====================== CUSTOMIZED PRINT BILL ======================
+function printBill() {
+  if (bill.length === 0) return alert("Bill is empty!");
+
+  const invoice = document.getElementById("invoice").value;
+  const customer = document.getElementById("customerName").value.trim() || "Walk-in";
+  const table = currentTable || "N/A";
+  const date = new Date().toLocaleString('en-IN');
+  let subtotal = bill.reduce((sum, b) => sum + b.qty * b.price, 0);
+  const gstApplied = document.getElementById("gst").checked;
+  const finalTotal = (gstApplied ? subtotal * 1.05 : subtotal).toFixed(2);
+
+  // Populate Print Area
+  document.getElementById("printInvoice").innerText = invoice;
+  document.getElementById("printCustomer").innerText = customer;
+  document.getElementById("printTable").innerText = table;
+  document.getElementById("printDate").innerText = date;
+  document.getElementById("printTotal").innerText = finalTotal;
+
+  const tbody = document.getElementById("printTableItems").querySelector("tbody");
+  tbody.innerHTML = "";
+  bill.forEach(b => {
+    const amt = (b.qty * b.price).toFixed(2);
+    tbody.innerHTML += `<tr>
+      <td>${b.name}</td>
+      <td>${b.qty}</td>
+      <td>₹${b.price}</td>
+      <td class="amount">₹${amt}</td>
+    </tr>`;
+  });
+
+  const printArea = document.getElementById("printArea");
+  printArea.style.display = "block";
+  window.print();
+  printArea.style.display = "none";
+
+  saveBillWithSync(false);
+
+  setTimeout(clearBill, 1200);   // Slightly faster auto-clear
+}
+
+// ====================== SAVE BILL ======================
+function saveBillWithSync(isFromCustomer = false, custName = null, custTable = null) {
+  const invoice = document.getElementById("invoice").value;
+  let customerName = custName || document.getElementById("customerName").value.trim() || "Walk-in";
+  let tableNumber = custTable || currentTable || "N/A";
+  if (isFromCustomer) {
+    customerName = custName || currentName || "Guest";
+    tableNumber = custTable || currentTable;
+  }
+  const total = parseFloat(document.getElementById("total").innerText) || 0;
+  const billData = {
+    timestamp: new Date().toLocaleString(),
+    invoice: invoice,
+    customerName: customerName,
+    tableNumber: tableNumber,
+    total: total,
+    gstApplied: document.getElementById("gst").checked,
+    items: bill.map(item => `${item.name} x${item.qty} (₹${item.price})`).join(" | ")
+  };
+  db.ref('bills/' + Date.now()).set(billData);
+}
+
+// ====================== CUSTOMER ORDERING & OTHER FUNCTIONS (unchanged) ======================
 function joinTable() {
   currentTable = document.getElementById("custTable").value.trim();
   currentName = document.getElementById("custName").value.trim() || "Guest";
   if (!currentTable) return alert("Please enter Table Number");
-
   document.getElementById("signInSection").style.display = "none";
   document.getElementById("menuSection").style.display = "block";
   document.getElementById("displayTable").innerText = currentTable;
@@ -346,34 +505,19 @@ function renderCustomerOrder() {
 }
 
 function delCustomerItem(i) { customerOrder.splice(i,1); renderCustomerOrder(); }
-
-function clearCustomerOrder() {
-  if(confirm("Clear cart?")) { 
-    customerOrder = []; 
-    renderCustomerOrder(); 
-  }
-}
+function clearCustomerOrder() { if(confirm("Clear cart?")) { customerOrder = []; renderCustomerOrder(); } }
 
 function placeCustomerOrder() {
   if (customerOrder.length === 0) return alert("Cart is empty!");
   const total = parseFloat(document.getElementById("custTotal").innerText);
   const orderId = Date.now();
-  const orderData = {
-    id: orderId,
-    table: currentTable,
-    name: currentName,
-    items: JSON.parse(JSON.stringify(customerOrder)),
-    total: total,
-    timestamp: new Date().toLocaleString(),
-    status: "pending"
-  };
+  const orderData = { id: orderId, table: currentTable, name: currentName, items: JSON.parse(JSON.stringify(customerOrder)), total, timestamp: new Date().toLocaleString(), status: "pending" };
   db.ref('tableOrders/' + orderId).set(orderData);
   alert(`✅ Order Placed Successfully for Table ${currentTable}`);
   customerOrder = [];
   renderCustomerOrder();
 }
 
-// ====================== LIVE TABLE ORDERS ======================
 function showTableOrders() {
   document.getElementById("ordersPanel").style.display = "block";
   renderLiveOrders();
@@ -384,20 +528,15 @@ function showTableOrders() {
 
 function hideOrdersPanel() {
   document.getElementById("ordersPanel").style.display = "none";
-  if (liveOrdersListener) {
-    liveOrdersListener.off();
-    liveOrdersListener = null;
-  }
+  if (liveOrdersListener) { liveOrdersListener.off(); liveOrdersListener = null; }
 }
 
 function renderLiveOrders(snapshot) {
   const data = snapshot ? snapshot.val() : {};
   const orders = Object.values(data || {});
   const pending = orders.filter(o => o && o.status === "pending");
-
   let html = `<h3>📋 Live Table Orders (${pending.length} pending) - Real-time</h3>`;
   html += `<p class="refresh-note" style="color:green;">✅ Live Sync Enabled</p>`;
-
   if (pending.length === 0) {
     html += "<p>No pending orders at the moment.</p>";
   } else {
@@ -419,66 +558,18 @@ function renderLiveOrders(snapshot) {
   document.getElementById("ordersPanel").innerHTML = html;
 }
 
-// ====================== ACCEPT ORDER ======================
 function acceptOrder(orderId) {
   if (!confirm("Accept this order and add to current bill?")) return;
-
   db.ref('tableOrders/' + orderId).once('value', (snapshot) => {
     const ord = snapshot.val();
-    if (!ord || ord.status !== "pending") {
-      return alert("Order not found or already accepted");
-    }
-
+    if (!ord || ord.status !== "pending") return alert("Order not found or already accepted");
     document.getElementById("customerName").value = ord.name || `Table ${ord.table}`;
     bill = bill.concat(ord.items.map(item => ({...item})));
     renderBill();
-
     db.ref('tableOrders/' + orderId).update({ status: "accepted" });
     saveBillWithSync(true, ord.name, ord.table);
-
     alert(`✅ Order from Table ${ord.table} (${ord.name}) accepted and added to bill`);
   });
-}
-
-// ====================== SAVE BILL TO FIREBASE ======================
-function saveBillWithSync(isFromCustomer = false, custName = null, custTable = null) {
-  const invoice = document.getElementById("invoice").value || "INV-" + Date.now();
-  let customerName = custName || document.getElementById("customerName").value.trim() || "Walk-in";
-  let tableNumber = custTable || "N/A";
-
-  if (isFromCustomer) {
-    customerName = custName || currentName || "Guest";
-    tableNumber = custTable || currentTable;
-  }
-
-  const totalEl = isFromCustomer ? document.getElementById("custTotal") : document.getElementById("total");
-  const total = parseFloat(totalEl.innerText) || 0;
-
-  const billData = {
-    timestamp: new Date().toLocaleString(),
-    invoice: invoice,
-    customerName: customerName,
-    tableNumber: tableNumber,
-    total: total,
-    gstApplied: document.getElementById("gst").checked,
-    items: bill.map(item => `${item.name} x${item.qty} (₹${item.price})`).join(" | ")
-  };
-
-  db.ref('bills/' + Date.now()).set(billData)
-    .then(() => console.log("Bill saved to Firebase"))
-    .catch(err => console.error("Firebase save error:", err));
-}
-
-function printBill() {
-  if (bill.length === 0) return alert("Bill is empty!");
-
-  saveBillWithSync(false);
-  window.print();
-
-  // Auto-clear bill after printing
-  setTimeout(() => {
-    clearBill();
-  }, 1500);
 }
 
 function exportExcel() {
@@ -525,7 +616,6 @@ function initializeApp() {
   const urlParams = new URLSearchParams(window.location.search);
   const mode = urlParams.get('mode');
   currentTable = urlParams.get('table') || '';
-
   if (mode === 'customer') {
     document.getElementById('staffView').style.display = 'none';
     document.getElementById('customerView').style.display = 'block';
