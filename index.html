@@ -18,7 +18,7 @@
         border-radius: 15px;
         box-shadow: 0 4px 20px rgba(0,0,0,0.2);
     }
-    h2 { text-align: center; color: #d84315; margin: 10px 0; }
+    h2 { text-align: center; color: #d84315; margin: 8px 0 4px 0; }
     h3, h4 { color: #d84315; }
     input, select, button {
         width: 100%;
@@ -97,15 +97,8 @@
         box-shadow: 0 6px 20px rgba(216, 67, 21, 0.3);
         position: relative;
     }
-    .order-notification h4 {
-        margin: 0 0 8px 0;
-        color: #d84315;
-        font-size: 16px;
-    }
-    .order-notification p {
-        margin: 4px 0;
-        font-size: 14px;
-    }
+    .order-notification h4 { margin: 0 0 8px 0; color: #d84315; font-size: 16px; }
+    .order-notification p { margin: 4px 0; font-size: 14px; }
     .close-notif {
         position: absolute;
         top: 8px;
@@ -117,7 +110,7 @@
         color: #d84315;
     }
 
-    /* Customer Order Accepted Message */
+    /* Customer Accepted Message */
     #customerAcceptedMsg {
         display: none;
         background: #2e7d32;
@@ -132,7 +125,12 @@
 
     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-    .logo img { width: 100px; display: block; margin: auto; }
+    .logo img { 
+        width: 140px; 
+        display: block; 
+        margin: 0 auto 8px auto; 
+        border-radius: 8px;
+    }
     .refresh-note {
         font-size: 12px;
         color: #666;
@@ -148,12 +146,17 @@
             position: absolute; left: 0; top: 0;
             width: 100%; max-width: 380px; margin: 0 auto;
             padding: 15px 20px; font-family: Arial, sans-serif;
-            font-size: 14px; line-height: 1.4; text-align: center;
+            font-size: 14px; line-height: 1.5; text-align: center;
         }
         .print-header { margin-bottom: 20px; border-bottom: 2px dashed #d84315; padding-bottom: 15px; }
-        .print-header img { width: 90px; margin-bottom: 8px; }
+        .print-header img { width: 110px; margin-bottom: 10px; }
         .print-title { font-size: 26px; font-weight: bold; color: #d84315; margin: 5px 0; }
-        .print-subtitle { font-size: 15px; color: #555; margin-bottom: 10px; }
+        .print-subtitle, .print-contact {
+            font-size: 13.5px;
+            color: #444;
+            line-height: 1.4;
+            margin: 4px 0;
+        }
         .print-info { text-align: left; margin: 15px 0; font-size: 15px; }
         .print-info strong { color: #d84315; }
         table.print-table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 14px; }
@@ -170,8 +173,12 @@
     <!-- STAFF POS VIEW -->
     <div id="staffView">
         <div class="logo">
-            <img src="LOGO.png" alt="Logo">
+            <img src="https://i.imgur.com/epOIKaj.png" alt="Shree & Shriyan Dhaba Logo">
             <h2>Shree & Shriyan Dhaba</h2>
+            <p style="text-align:center; color:#d84315; font-size:13.5px; line-height:1.4; margin:5px 0;">
+                At/Po - Durlaga, Dist - Jharsuguda, Pin - 768204 (Odisha)<br>
+                📞 +91 7077088311 | ✉ jogendra.dipeng11@gmail.com
+            </p>
             <p style="text-align:center;color:#d84315;font-weight:bold;">STAFF POS</p>
         </div>
         <input id="customerName" placeholder="Customer Name (optional)">
@@ -209,7 +216,7 @@
     <!-- CUSTOMER VIEW -->
     <div id="customerView" style="display:none;">
         <div class="logo">
-            <img src="LOGO.png" alt="Logo">
+            <img src="https://i.imgur.com/epOIKaj.png" alt="Logo" style="width:130px;">
             <h2>Shree & Shriyan Dhaba</h2>
             <p style="text-align:center;color:#2e7d32;font-weight:bold;">TABLE ORDERING</p>
         </div>
@@ -243,12 +250,16 @@
 <!-- Staff Only Notification Container -->
 <div id="notificationContainer" class="notification-container"></div>
 
-<!-- Hidden Print Area (Main POS) -->
+<!-- Hidden Print Area -->
 <div id="printArea" style="display:none;">
     <div class="print-header">
-        <img src="LOGO.png" alt="Logo">
+        <img src="https://i.imgur.com/epOIKaj.png" alt="Logo">
         <div class="print-title">Shree & Shriyan Dhaba</div>
-        <div class="print-subtitle">Authentic Punjabi • Fresh & Tasty Food</div>
+        <div class="print-subtitle">At/Po - Durlaga, Dist - Jharsuguda, Pin - 768204 (Odisha)</div>
+        <div class="print-contact">
+            📞 +91 7077088311<br>
+            ✉ jogendra.dipeng11@gmail.com
+        </div>
     </div>
     <div class="print-info">
         <strong>Invoice No:</strong> <span id="printInvoice"></span><br>
@@ -263,8 +274,7 @@
     <div class="print-total">Grand Total: ₹ <span id="printTotal"></span></div>
     <div class="print-footer">
         Thank You! Please Visit Again 😊<br>
-        <small>GST 5% Applied (where applicable)</small><br>
-        <small>Have a Great Day!</small>
+        <small>GST 5% Applied (where applicable)</small>
     </div>
 </div>
 
@@ -382,24 +392,26 @@ function renderBill() {
   document.getElementById("total").innerText = total.toFixed(2);
 }
 
-// ====================== AUTO CLEAR ======================
+// ====================== AUTO CLEAR WITH PROPER INVOICE INCREMENT ======================
 function clearBill() {
   bill = [];
   renderBill();
   document.getElementById("customerName").value = "";
   currentTable = '';
+
+  // Properly increment invoice number
   count++;
   localStorage.setItem("inv", count);
   document.getElementById("invoice").value = "INV" + String(count).padStart(3, '0');
+
   showSuccess("✅ Bill Printed & Cleared Successfully");
 }
 
-// ====================== OPEN SEPARATE BILL IN NEW TAB ======================
+// ====================== OPEN BILL IN NEW TAB (with correct invoice) ======================
 function openBillInNewTab(order) {
-  const invoice = "INV" + String(Date.now()).slice(-6);
+  const invoice = "INV" + String(count).padStart(3, '0');   // Use current count
   let subtotal = order.items.reduce((sum, item) => sum + item.qty * item.price, 0);
-  const gstApplied = true; // You can make this dynamic if needed
-  const finalTotal = (gstApplied ? subtotal * 1.05 : subtotal).toFixed(2);
+  const finalTotal = (subtotal * 1.05).toFixed(2);
 
   let itemsHtml = '';
   order.items.forEach(item => {
@@ -415,21 +427,26 @@ function openBillInNewTab(order) {
       <style>
         body { font-family: Arial, sans-serif; max-width: 380px; margin: 20px auto; padding: 15px; }
         .header { text-align: center; margin-bottom: 20px; border-bottom: 2px dashed #d84315; padding-bottom: 15px; }
-        .header img { width: 80px; }
-        .title { font-size: 24px; font-weight: bold; color: #d84315; }
+        .header img { width: 110px; }
+        .title { font-size: 26px; font-weight: bold; color: #d84315; margin: 8px 0 4px 0; }
+        .contact { font-size: 13.5px; color: #444; line-height: 1.5; }
         table { width: 100%; border-collapse: collapse; margin: 15px 0; }
         th, td { padding: 8px; border-bottom: 1px dotted #ccc; text-align: left; }
         .amount { text-align: right; }
-        .total { font-size: 20px; font-weight: bold; color: #d84315; text-align: center; margin: 20px 0; }
+        .total { font-size: 22px; font-weight: bold; color: #d84315; text-align: center; margin: 20px 0; }
         button { background: #d84315; color: white; padding: 12px; border: none; width: 100%; font-size: 18px; cursor: pointer; margin-top: 20px; }
         .footer { text-align: center; margin-top: 30px; font-size: 13px; color: #666; }
       </style>
     </head>
     <body>
       <div class="header">
-        <img src="LOGO.png" alt="Logo">
+        <img src="https://i.imgur.com/epOIKaj.png" alt="Logo">
         <div class="title">Shree & Shriyan Dhaba</div>
-        <div>Authentic Punjabi • Fresh & Tasty Food</div>
+        <div class="contact">
+          At/Po - Durlaga, Dist - Jharsuguda, Pin - 768204 (Odisha)<br>
+          📞 +91 7077088311<br>
+          ✉ jogendra.dipeng11@gmail.com
+        </div>
       </div>
       <div>
         <strong>Invoice:</strong> ${invoice}<br>
@@ -451,25 +468,27 @@ function openBillInNewTab(order) {
   const newTab = window.open('', '_blank');
   newTab.document.write(billHtml);
   newTab.document.close();
+
+  // Increment invoice after opening bill
+  count++;
+  localStorage.setItem("inv", count);
+  document.getElementById("invoice").value = "INV" + String(count).padStart(3, '0');
 }
 
-// ====================== ACCEPT ORDER - OPEN IN NEW TAB ======================
+// ====================== ACCEPT ORDER ======================
 function acceptOrder(orderId) {
-  if (!confirm("Accept this order? It will open a separate bill in a new tab for this table.")) return;
+  if (!confirm("Accept this order? It will open a separate bill in a new tab.")) return;
 
   db.ref('tableOrders/' + orderId).once('value', (snapshot) => {
     const ord = snapshot.val();
     if (!ord || ord.status !== "pending") return alert("Order not found or already accepted");
 
-    // Open separate bill in new tab
     openBillInNewTab(ord);
 
-    // Mark as accepted
     db.ref('tableOrders/' + orderId).update({ status: "accepted" });
 
     alert(`✅ Order from Table ${ord.table} accepted.\nBill opened in new tab for printing.`);
 
-    // Notify Customer
     notifyCustomerOrderAccepted(ord.table, ord.name);
   });
 }
@@ -504,7 +523,7 @@ function showOrderNotification(order) {
   setTimeout(() => { if (notif.parentElement) notif.remove(); }, 15000);
 }
 
-// ====================== REMAINING FUNCTIONS (UNCHANGED) ======================
+// ====================== LISTENERS & OTHER FUNCTIONS ======================
 function listenForNewOrders() {
   db.ref('newOrders').on('child_added', (snapshot) => {
     const order = snapshot.val();
@@ -601,8 +620,6 @@ function hideOrdersPanel() {
   if (liveOrdersListener) liveOrdersListener.off();
   if (refreshInterval) clearInterval(refreshInterval);
 }
-
-// Rest of the functions (exportExcel, sendWhatsApp, dailyReport, generateQRCode, showSuccess, joinTable, loadCustomerMenu, etc.) remain exactly the same as previous version.
 
 function exportExcel() {
   if (bill.length === 0) return alert("Bill is empty!");
