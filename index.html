@@ -37,6 +37,9 @@
         margin-top: 5px;
     }
     button:hover { opacity: 0.9; }
+    .cash-btn {
+        background: #f57c00 !important;
+    }
     .total {
         font-size: 22px;
         font-weight: bold;
@@ -131,7 +134,7 @@
 </head>
 <body>
 <div class="container">
-    <!-- STAFF POS VIEW -->
+    <!-- STAFF POS VIEW (Unchanged) -->
     <div id="staffView">
         <div class="logo">
             <img src="./logo_180x90.jpg" alt="Shree & Shriyan Dhaba Logo">
@@ -182,7 +185,7 @@
         <div id="signInSection">
             <h3 style="text-align:center;">Welcome!</h3>
             <input id="custTable" type="number" placeholder="Your Table Number">
-            <input id="custName" placeholder="Your Name (optional)">
+            <input id="custName" placeholder="Your Name (required)">
             <button onclick="joinTable()" style="background:#d84315;font-size:18px;">✅ Start Ordering</button>
         </div>
         <div id="menuSection" style="display:none;">
@@ -211,6 +214,10 @@
                 <p style="text-align:center; font-size:13px; color:#666;">
                     💡 If payment fails, open PhonePe app → Scan QR code
                 </p>
+
+                <button onclick="payByCash()" class="cash-btn" style="margin-top:15px;">
+                    💵 Pay by Cash
+                </button>
 
                 <input id="paidAmount" type="number" placeholder="Enter Paid Amount ₹" style="margin-top:12px;">
                 <button onclick="markAsPaid()" style="background:#2e7d32; margin-top:10px;">
@@ -262,6 +269,7 @@ let currentTable = '';
 let customerOrder = [];
 let currentName = '';
 let count = parseInt(localStorage.getItem("inv") || "1");
+let currentPaymentMode = "";   // Will be set only when customer chooses payment
 
 // ====================== MENU ======================
 function loadAndListenMenu() {
@@ -347,7 +355,7 @@ function clearBill() {
 }
 
 // ====================== THERMAL PRINT ======================
-function printThermalBill(itemsList, invoiceNo, customerName, tableNo = '') {
+function printThermalBill(itemsList, invoiceNo, customerName, tableNo = '', paymentMode = '') {
   let subtotal = 0;
   let itemsHtml = '';
   itemsList.forEach(item => {
@@ -367,6 +375,7 @@ function printThermalBill(itemsList, invoiceNo, customerName, tableNo = '') {
       ${tableNo ? `<div><strong>Table:</strong> ${tableNo}</div>` : ''}
       <div><strong>Customer:</strong> ${customerName || 'Guest'}</div>
       <div><strong>Date:</strong> ${new Date().toLocaleString('en-IN')}</div>
+      ${paymentMode ? `<div><strong>Payment Mode:</strong> ${paymentMode}</div>` : ''}
       <hr>
       <table>
         <thead><tr><th>Item</th><th>Qty</th><th class="amount">Amt</th></tr></thead>
@@ -439,6 +448,7 @@ function openBillInNewTab(order) {
   <p><strong>Table:</strong> ${order.table}</p>
   <p><strong>Customer:</strong> ${order.name || 'Guest'}</p>
   <p><strong>Date:</strong> ${new Date().toLocaleString('en-IN')}</p>
+  <p><strong>Payment Mode:</strong> ${order.paymentMode || 'Not Specified'}</p>
   <table>
     <thead><tr><th>Item</th><th>Qty</th><th class="amount">Amount</th></tr></thead>
     <tbody>${itemsHtml}</tbody>
@@ -454,8 +464,7 @@ function openBillInNewTab(order) {
     const invoiceNo = "${invoiceNo}";
     function printThermal() {
       if (window.opener && typeof window.opener.printThermalBill === "function") {
-        window.opener.printThermalBill(orderData.items, invoiceNo, orderData.name || "Guest", orderData.table);
-        window.opener.clearBill();
+        window.opener.printThermalBill(orderData.items, invoiceNo, orderData.name || "Guest", orderData.table, orderData.paymentMode || "");
       }
       setTimeout(() => window.close(), 1000);
     }
@@ -465,7 +474,7 @@ function openBillInNewTab(order) {
       setTimeout(() => window.close(), 1000);
     }
     function sendWhatsAppBill() {
-      let msg = "Shree & Shriyan Dhaba\\nInvoice: " + invoiceNo + "\\nTable: " + orderData.table + "\\nCustomer: " + (orderData.name || "Guest") + "\\n\\n";
+      let msg = "Shree & Shriyan Dhaba\\nInvoice: " + invoiceNo + "\\nTable: " + orderData.table + "\\nCustomer: " + (orderData.name || "Guest") + "\\nPayment Mode: " + (orderData.paymentMode || "Not Specified") + "\\n\\n";
       orderData.items.forEach(item => msg += item.name + " x" + item.qty + " - ₹" + (item.qty * item.price) + "\\n");
       const total = orderData.items.reduce((sum, item) => sum + item.qty * item.price, 0) * 1.05;
       msg += "\\nGrand Total: ₹" + total.toFixed(0);
@@ -481,7 +490,7 @@ function openBillInNewTab(order) {
     newWin.document.write(billHTML);
     newWin.document.close();
   } else {
-    alert("Pop-up blocked! Please allow pop-ups for this site and try again.");
+    alert("Pop-up blocked! Please allow pop-ups.");
   }
 }
 
@@ -509,16 +518,28 @@ function notifyCustomerOrderAccepted(table, name) {
 // ====================== CUSTOMER SIDE ======================
 function joinTable() {
   currentTable = document.getElementById("custTable").value.trim();
-  currentName = document.getElementById("custName").value.trim() || "Guest";
-  if (!currentTable) return alert("Please enter Table Number");
+  currentName = document.getElementById("custName").value.trim();
+
+  if (!currentTable) {
+    alert("Please enter Table Number");
+    return;
+  }
+
+  if (!currentName) {
+    alert("Please enter your name to start ordering");
+    return;
+  }
+
   document.getElementById("signInSection").style.display = "none";
   document.getElementById("menuSection").style.display = "block";
   document.getElementById("displayTable").innerText = currentTable;
   document.getElementById("displayName").innerText = currentName;
+
   loadCustomerMenu();
   renderCustomerOrder();
   listenForAcceptedOrders();
 }
+
 function loadCustomerMenu() {
   let html = '';
   items.forEach((item, idx) => {
@@ -529,6 +550,7 @@ function loadCustomerMenu() {
   });
   document.getElementById("menuItems").innerHTML = html;
 }
+
 function addCustomerItem(idx) {
   let item = items[idx];
   let existing = customerOrder.find(o => o.name === item.name);
@@ -536,6 +558,7 @@ function addCustomerItem(idx) {
   else customerOrder.push({...item, qty: 1});
   renderCustomerOrder();
 }
+
 function renderCustomerOrder() {
   let html = "", total = 0;
   customerOrder.forEach((b, i) => {
@@ -547,6 +570,7 @@ function renderCustomerOrder() {
   document.getElementById("custTotal").innerText = total.toFixed(2);
   generateDynamicPhonePeQR();
 }
+
 function delCustomerItem(i) { customerOrder.splice(i,1); renderCustomerOrder(); }
 function clearCustomerOrder() {
   if(confirm("Clear cart?")) {
@@ -554,6 +578,7 @@ function clearCustomerOrder() {
     renderCustomerOrder();
   }
 }
+
 function placeCustomerOrder() {
   if (customerOrder.length === 0) return alert("Cart is empty!");
   const total = parseFloat(document.getElementById("custTotal").innerText);
@@ -566,10 +591,67 @@ function placeCustomerOrder() {
     total: total,
     timestamp: new Date().toLocaleString(),
     status: "pending"
+    // paymentMode removed - will be set only when customer chooses payment
   };
   db.ref('tableOrders/' + orderId).set(orderData);
   db.ref('newOrders/' + orderId).set(orderData);
   alert(`✅ Order Placed Successfully for Table ${currentTable}`);
+}
+
+// ====================== PAY BY CASH ======================
+function payByCash() {
+  if (customerOrder.length === 0) return alert("Cart is empty!");
+  
+  currentPaymentMode = "Cash";
+  
+  const orderId = Date.now();
+  const orderData = {
+    id: orderId,
+    table: currentTable,
+    name: currentName,
+    items: JSON.parse(JSON.stringify(customerOrder)),
+    total: parseFloat(document.getElementById("custTotal").innerText),
+    timestamp: new Date().toLocaleString(),
+    status: "pending",
+    paymentMode: "Cash"
+  };
+
+  db.ref('tableOrders/' + orderId).set(orderData);
+  db.ref('newOrders/' + orderId).set(orderData);
+
+  document.getElementById("paymentSuccessMsg").innerHTML = `
+    ✅ Cash Payment Requested!<br>
+    <span style="font-size:16px;">Our staff has been notified. Please pay at the counter.</span>
+  `;
+  document.getElementById("paymentSuccessMsg").style.display = "block";
+
+  alert("✅ Cash payment request sent to staff. Please pay at the counter when food is ready.");
+}
+
+// ====================== MARK AS PAID (Online) ======================
+function markAsPaid() {
+  const paidAmt = parseFloat(document.getElementById("paidAmount").value);
+  const total = parseFloat(document.getElementById("custTotal").innerText);
+  const whatsapp = document.getElementById("custWhatsApp").value.trim() || "Not Provided";
+  if (!paidAmt || paidAmt < total) {
+    alert("Please enter correct paid amount (≥ total)");
+    return;
+  }
+
+  currentPaymentMode = "Online";
+
+  document.getElementById("paymentSuccessMsg").style.display = "block";
+  let msg = `Shree & Shriyan Dhaba - Payment Receipt\nTable: ${currentTable}\nCustomer: ${currentName}\n\n`;
+  customerOrder.forEach(item => msg += `${item.name} x${item.qty} = ₹${item.qty * item.price}\n`);
+  msg += `\nPaid: ₹${paidAmt}\nThank You! Come Again 😊`;
+  if (whatsapp && whatsapp.length >= 10) {
+    window.open("https://wa.me/" + whatsapp + "?text=" + encodeURIComponent(msg));
+  } else {
+    window.open("https://wa.me/?text=" + encodeURIComponent(msg));
+  }
+  alert("✅ Payment Confirmed! Receipt sent to WhatsApp.");
+  customerOrder = [];
+  renderCustomerOrder();
 }
 
 function generateDynamicPhonePeQR() {
@@ -591,26 +673,16 @@ function generateDynamicPhonePeQR() {
   container.style.display = "block";
 }
 
-function markAsPaid() {
-  const paidAmt = parseFloat(document.getElementById("paidAmount").value);
-  const total = parseFloat(document.getElementById("custTotal").innerText);
-  const whatsapp = document.getElementById("custWhatsApp").value.trim() || "Not Provided";
-  if (!paidAmt || paidAmt < total) {
-    alert("Please enter correct paid amount (≥ total)");
-    return;
+// ====================== LISTEN FOR ACCEPTED ORDERS ======================
+function listenForAcceptedOrders() {
+  if (currentTable) {
+    db.ref('acceptedOrders/' + currentTable).on('value', (snapshot) => {
+      const data = snapshot.val();
+      if (data && data.message === "accepted") {
+        document.getElementById("customerAcceptedMsg").style.display = "block";
+      }
+    });
   }
-  document.getElementById("paymentSuccessMsg").style.display = "block";
-  let msg = `Shree & Shriyan Dhaba - Payment Receipt\nTable: ${currentTable}\nCustomer: ${currentName}\n\n`;
-  customerOrder.forEach(item => msg += `${item.name} x${item.qty} = ₹${item.qty * item.price}\n`);
-  msg += `\nPaid: ₹${paidAmt}\nThank You! Come Again 😊`;
-  if (whatsapp && whatsapp.length >= 10) {
-    window.open("https://wa.me/" + whatsapp + "?text=" + encodeURIComponent(msg));
-  } else {
-    window.open("https://wa.me/?text=" + encodeURIComponent(msg));
-  }
-  alert("✅ Payment Confirmed! Receipt sent to WhatsApp.");
-  customerOrder = [];
-  renderCustomerOrder();
 }
 
 // ====================== NOTIFICATIONS ======================
@@ -625,6 +697,7 @@ function listenForNewOrders() {
         <h4>🛎️ New Order Received!</h4>
         <p><strong>Table ${order.table}</strong> • ${order.name}</p>
         <p>Total: ₹${order.total}</p>
+        ${order.paymentMode ? `<p><strong>Payment:</strong> ${order.paymentMode}</p>` : ''}
         <button onclick="acceptOrder(${order.id}); this.parentElement.remove()" style="background:#2e7d32;padding:8px 16px;margin-top:8px;">
           ✅ Accept Order
         </button>
@@ -635,7 +708,10 @@ function listenForNewOrders() {
   });
 }
 
-// ====================== GENERATE TABLE QR CODE (FIXED) ======================
+// ====================== OTHER FUNCTIONS ======================
+function exportExcel() { alert("Export ready"); }
+function sendWhatsApp() { alert("WhatsApp ready"); }
+function dailyReport() { alert("Check Firebase"); }
 function generateQRCode() {
   const tableNo = document.getElementById("qrTableNum").value.trim();
   if (!tableNo) {
@@ -645,12 +721,10 @@ function generateQRCode() {
   const hostedUrl = window.location.href.split('?')[0];
   const orderLink = `${hostedUrl}?mode=customer&table=${tableNo}`;
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(orderLink)}`;
-  
   document.getElementById("qrContainer").innerHTML = `
     <img src="${qrSrc}" style="width:250px; border:8px solid #d84315; border-radius:12px;" alt="Table QR">
     <p style="margin-top:10px; font-weight:bold;">Table ${tableNo} - Scan to Start Ordering</p>
   `;
-  console.log("QR Generated for Table:", tableNo); // For debugging
 }
 
 // ====================== INITIALIZE ======================
@@ -658,10 +732,17 @@ function initializeApp() {
   const urlParams = new URLSearchParams(window.location.search);
   const mode = urlParams.get('mode');
   currentTable = urlParams.get('table') || '';
+
   if (mode === 'customer') {
     document.getElementById('staffView').style.display = 'none';
     document.getElementById('customerView').style.display = 'block';
     document.getElementById('custTable').value = currentTable;
+    
+    if (currentTable) {
+      setTimeout(() => {
+        joinTable();
+      }, 300);
+    }
   } else {
     document.getElementById('staffView').style.display = 'block';
     listenForNewOrders();
