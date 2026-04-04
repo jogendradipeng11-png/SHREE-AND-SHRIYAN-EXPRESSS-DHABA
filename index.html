@@ -90,7 +90,6 @@
 </head>
 <body>
 <div class="container">
-
     <!-- STAFF POS VIEW -->
     <div id="staffView">
         <div class="logo">
@@ -98,25 +97,19 @@
             <h2>Shree & Shriyan Dhaba</h2>
             <p style="text-align:center;color:#d84315;font-weight:bold;">STAFF POS</p>
         </div>
-
         <input id="customerName" placeholder="Customer Name (optional)">
         <input id="invoice" readonly>
-
         <select id="item"></select>
         <input id="qty" type="number" placeholder="Qty" value="1">
-
         <button onclick="addItem()">➕ Add Item</button>
         <button onclick="voiceAdd()">🎤 Voice Add</button>
-
         <table border="1">
             <thead><tr><th>Item</th><th>Qty</th><th>Amt</th><th>X</th></tr></thead>
             <tbody id="bill"></tbody>
         </table>
-
         <label><input type="checkbox" id="gst" checked> GST 5%</label>
         <div class="total">Total: ₹ <span id="total">0</span></div>
-
-        <button onclick="printBill()">🧾 Print Bill</button>
+        <button onclick="printBill()">🧾 Print & Clear Bill</button>
         <button onclick="exportExcel()">📊 Export Excel</button>
         <button onclick="sendWhatsApp()">📲 WhatsApp</button>
         <button onclick="dailyReport()">📊 Daily Report</button>
@@ -145,26 +138,22 @@
             <h2>Shree & Shriyan Dhaba</h2>
             <p style="text-align:center;color:#2e7d32;font-weight:bold;">TABLE ORDERING</p>
         </div>
-
         <div id="signInSection">
             <h3 style="text-align:center;">Welcome!</h3>
             <input id="custTable" type="number" placeholder="Your Table Number">
             <input id="custName" placeholder="Your Name (optional)">
             <button onclick="joinTable()" style="background:#d84315;font-size:18px;">✅ Start Ordering</button>
         </div>
-
         <div id="menuSection" style="display:none;">
             <h3 style="text-align:center;">Menu for Table <span id="displayTable" style="color:#d84315;"></span></h3>
             <p style="text-align:center;">Hello, <span id="displayName"></span>!</p>
             <div id="menuItems"></div>
-
             <h3>Your Order</h3>
             <table border="1">
                 <thead><tr><th>Item</th><th>Qty</th><th>Amt</th><th>X</th></tr></thead>
                 <tbody id="customerBill"></tbody>
             </table>
             <div class="total">Your Total: ₹ <span id="custTotal">0</span></div>
-
             <button onclick="placeCustomerOrder()" style="background:#d84315;">✅ Place Order for Kitchen</button>
             <button onclick="clearCustomerOrder()" style="background:#666;">🗑️ Clear Cart</button>
         </div>
@@ -177,7 +166,6 @@
 <!-- Firebase Scripts -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-
 <script>
 // ====================== FIREBASE CONFIG ======================
 const firebaseConfig = {
@@ -189,20 +177,25 @@ const firebaseConfig = {
   messagingSenderId: "1044375723943",
   appId: "1:1044375723943:web:828c2351f76858f870e082"
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// ====================== MENU - REAL-TIME SYNC ======================
+// ====================== GLOBAL VARIABLES ======================
 let items = [];
+let bill = [];
+let customerOrder = [];
+let currentTable = '';
+let currentName = '';
+let count = parseInt(localStorage.getItem("inv") || "1");
+let liveOrdersListener = null;
 
+// ====================== MENU - REAL-TIME SYNC ======================
 function loadAndListenMenu() {
   db.ref('menu').on('value', (snapshot) => {
     const data = snapshot.val();
     if (data) {
       items = Object.values(data);
     } else {
-      // Default menu
       items = [
         {name: "Aloo Paratha", price: 50},
         {name: "Paneer Butter Masala", price: 180},
@@ -212,8 +205,7 @@ function loadAndListenMenu() {
       saveMenu();
     }
     renderStaffMenu();
-    if (document.getElementById("menuSection") && 
-        document.getElementById("menuSection").style.display !== "none") {
+    if (document.getElementById("menuSection")?.style.display !== "none") {
       loadCustomerMenu();
     }
   });
@@ -221,9 +213,7 @@ function loadAndListenMenu() {
 
 function saveMenu() {
   const menuObj = {};
-  items.forEach((item, i) => {
-    menuObj[i] = item;
-  });
+  items.forEach((item, i) => { menuObj[i] = item; });
   db.ref('menu').set(menuObj);
 }
 
@@ -238,35 +228,27 @@ function renderStaffMenu() {
 
 function addNewMenuItem() {
   const name = document.getElementById("newItemName").value.trim();
-  const priceStr = document.getElementById("newItemPrice").value;
-  const price = parseFloat(priceStr);
-
-  if (!name || isNaN(price) || price <= 0) {
-    return alert("Please enter valid item name and price");
-  }
+  const price = parseFloat(document.getElementById("newItemPrice").value);
+  if (!name || isNaN(price) || price <= 0) return alert("Please enter valid item name and price");
 
   const existingIndex = items.findIndex(i => i.name.toLowerCase() === name.toLowerCase());
-
   if (existingIndex !== -1) {
     items[existingIndex].price = price;
     alert(`Price updated for "${name}" to ₹${price}`);
   } else {
-    items.push({name: name, price: price});
+    items.push({name, price});
     alert(`New item "${name}" added successfully`);
   }
-
-  saveMenu();   // This triggers real-time update on all devices
+  saveMenu();
 }
 
 function showCurrentMenu() {
-  let msg = "Current Menu (Real-time from Firebase):\n\n";
+  let msg = "Current Menu (Real-time):\n\n";
   items.forEach(i => msg += `• ${i.name} - ₹${i.price}\n`);
   alert(msg);
 }
 
 // ====================== STAFF BILL ======================
-let bill = [];
-let count = parseInt(localStorage.getItem("inv") || "1");
 document.getElementById("invoice").value = "INV" + String(count).padStart(3, '0');
 
 function addItem() {
@@ -305,11 +287,21 @@ function renderBill() {
   document.getElementById("total").innerText = total.toFixed(2);
 }
 
-// ====================== CUSTOMER ORDERING ======================
-let customerOrder = [];
-let currentTable = '';
-let currentName = '';
+// ====================== AUTO CLEAR BILL FUNCTION ======================
+function clearBill() {
+  bill = [];
+  renderBill();
+  document.getElementById("customerName").value = "";
+  
+  // Increment invoice number
+  count++;
+  localStorage.setItem("inv", count);
+  document.getElementById("invoice").value = "INV" + String(count).padStart(3, '0');
+  
+  showSuccess("✅ Bill Printed & Cleared Successfully");
+}
 
+// ====================== CUSTOMER ORDERING ======================
 function joinTable() {
   currentTable = document.getElementById("custTable").value.trim();
   currentName = document.getElementById("custName").value.trim() || "Guest";
@@ -319,7 +311,6 @@ function joinTable() {
   document.getElementById("menuSection").style.display = "block";
   document.getElementById("displayTable").innerText = currentTable;
   document.getElementById("displayName").innerText = currentName;
-
   loadCustomerMenu();
   renderCustomerOrder();
 }
@@ -357,15 +348,16 @@ function renderCustomerOrder() {
 function delCustomerItem(i) { customerOrder.splice(i,1); renderCustomerOrder(); }
 
 function clearCustomerOrder() {
-  if(confirm("Clear cart?")) { customerOrder = []; renderCustomerOrder(); }
+  if(confirm("Clear cart?")) { 
+    customerOrder = []; 
+    renderCustomerOrder(); 
+  }
 }
 
 function placeCustomerOrder() {
   if (customerOrder.length === 0) return alert("Cart is empty!");
-
   const total = parseFloat(document.getElementById("custTotal").innerText);
   const orderId = Date.now();
-
   const orderData = {
     id: orderId,
     table: currentTable,
@@ -375,26 +367,16 @@ function placeCustomerOrder() {
     timestamp: new Date().toLocaleString(),
     status: "pending"
   };
-
   db.ref('tableOrders/' + orderId).set(orderData);
-
-  bill = customerOrder.map(i => ({...i}));
-  renderBill();
-  saveBillWithSync(true);
-
   alert(`✅ Order Placed Successfully for Table ${currentTable}`);
   customerOrder = [];
   renderCustomerOrder();
 }
 
-// ====================== LIVE TABLE ORDERS - REAL-TIME SYNC ======================
-let liveOrdersListener = null;
-
+// ====================== LIVE TABLE ORDERS ======================
 function showTableOrders() {
   document.getElementById("ordersPanel").style.display = "block";
   renderLiveOrders();
-
-  // Real-time listener
   if (liveOrdersListener) liveOrdersListener.off();
   liveOrdersListener = db.ref('tableOrders');
   liveOrdersListener.on('value', renderLiveOrders);
@@ -433,61 +415,74 @@ function renderLiveOrders(snapshot) {
     });
     html += `</tbody></table>`;
   }
-
   html += `<button onclick="hideOrdersPanel()" style="margin-top:10px;background:#d84315;">Close Panel</button>`;
   document.getElementById("ordersPanel").innerHTML = html;
 }
 
+// ====================== ACCEPT ORDER ======================
 function acceptOrder(orderId) {
   if (!confirm("Accept this order and add to current bill?")) return;
 
-  const orderRef = db.ref('tableOrders/' + orderId);
-  orderRef.once('value', (snapshot) => {
+  db.ref('tableOrders/' + orderId).once('value', (snapshot) => {
     const ord = snapshot.val();
     if (!ord || ord.status !== "pending") {
-      alert("Order not found or already accepted");
-      return;
+      return alert("Order not found or already accepted");
     }
 
+    document.getElementById("customerName").value = ord.name || `Table ${ord.table}`;
     bill = bill.concat(ord.items.map(item => ({...item})));
     renderBill();
 
-    orderRef.update({ status: "accepted" });
+    db.ref('tableOrders/' + orderId).update({ status: "accepted" });
+    saveBillWithSync(true, ord.name, ord.table);
 
-    alert(`✅ Order from Table ${ord.table} accepted and added to bill`);
+    alert(`✅ Order from Table ${ord.table} (${ord.name}) accepted and added to bill`);
   });
 }
 
-// ====================== OTHER FUNCTIONS ======================
-function showSuccess(msg) {
-  const toast = document.getElementById("successToast");
-  toast.textContent = msg;
-  toast.style.display = "block";
-  setTimeout(() => { toast.style.display = "none"; }, 3000);
-}
-
-function saveBillWithSync(isFromCustomer) {
+// ====================== SAVE BILL TO FIREBASE ======================
+function saveBillWithSync(isFromCustomer = false, custName = null, custTable = null) {
   const invoice = document.getElementById("invoice").value || "INV-" + Date.now();
-  const customerName = isFromCustomer ? currentName : (document.getElementById("customerName").value || "Walk-in");
-  const tableNumber = isFromCustomer ? currentTable : "N/A";
-  const total = isFromCustomer ? document.getElementById("custTotal").innerText : document.getElementById("total").innerText;
+  let customerName = custName || document.getElementById("customerName").value.trim() || "Walk-in";
+  let tableNumber = custTable || "N/A";
+
+  if (isFromCustomer) {
+    customerName = custName || currentName || "Guest";
+    tableNumber = custTable || currentTable;
+  }
+
+  const totalEl = isFromCustomer ? document.getElementById("custTotal") : document.getElementById("total");
+  const total = parseFloat(totalEl.innerText) || 0;
 
   const billData = {
     timestamp: new Date().toLocaleString(),
     invoice: invoice,
     customerName: customerName,
     tableNumber: tableNumber,
-    total: parseFloat(total) || 0,
-    items: (isFromCustomer ? customerOrder : bill).map(item => `${item.name} x${item.qty}`).join(" | ")
+    total: total,
+    gstApplied: document.getElementById("gst").checked,
+    items: bill.map(item => `${item.name} x${item.qty} (₹${item.price})`).join(" | ")
   };
 
-  db.ref('bills/' + Date.now()).set(billData);
-  showSuccess("✅ Bill saved to Firebase");
+  db.ref('bills/' + Date.now()).set(billData)
+    .then(() => console.log("Bill saved to Firebase"))
+    .catch(err => console.error("Firebase save error:", err));
 }
 
-function printBill() { saveBillWithSync(false); window.print(); }
+function printBill() {
+  if (bill.length === 0) return alert("Bill is empty!");
+
+  saveBillWithSync(false);
+  window.print();
+
+  // Auto-clear bill after printing
+  setTimeout(() => {
+    clearBill();
+  }, 1500);
+}
 
 function exportExcel() {
+  if (bill.length === 0) return alert("Bill is empty!");
   let csv = "Item,Qty,Price\n";
   bill.forEach(b => csv += `${b.name},${b.qty},${b.price}\n`);
   let blob = new Blob([csv], {type: "text/csv"});
@@ -498,6 +493,7 @@ function exportExcel() {
 }
 
 function sendWhatsApp() {
+  if (bill.length === 0) return alert("Bill is empty!");
   let msg = `Shree & Shriyan Dhaba\nInvoice: ${document.getElementById("invoice").value}\n\n`;
   bill.forEach(b => msg += `${b.name} x${b.qty}\n`);
   msg += `Total: ₹${document.getElementById("total").innerText}`;
@@ -505,7 +501,7 @@ function sendWhatsApp() {
 }
 
 function dailyReport() {
-  alert("Daily Report - Check Firebase Console");
+  alert("Daily Report - Check Firebase Console under 'bills' node");
 }
 
 function generateQRCode() {
@@ -515,6 +511,13 @@ function generateQRCode() {
   const orderLink = `${hostedUrl}?mode=customer&table=${tableNo}`;
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(orderLink)}`;
   document.getElementById("qrContainer").innerHTML = `<img src="${qrSrc}" style="width:250px;border:8px solid #d84315;border-radius:12px;"><p>Table ${tableNo} QR Code</p>`;
+}
+
+function showSuccess(msg) {
+  const toast = document.getElementById("successToast");
+  toast.textContent = msg;
+  toast.style.display = "block";
+  setTimeout(() => { toast.style.display = "none"; }, 3000);
 }
 
 // ====================== INITIALIZE ======================
@@ -530,14 +533,13 @@ function initializeApp() {
   } else {
     document.getElementById('staffView').style.display = 'block';
   }
-
   loadAndListenMenu();
 }
 
 initializeApp();
 
 window.onbeforeunload = function() {
-  localStorage.setItem("inv", ++count);
+  localStorage.setItem("inv", count);
 };
 </script>
 </body>
