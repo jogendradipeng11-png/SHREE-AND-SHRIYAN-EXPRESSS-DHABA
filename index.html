@@ -20,13 +20,8 @@
     .cash-btn { background: #f57c00 !important; }
     .total { font-size: 22px; font-weight: bold; color: #d84315; text-align: center; margin: 15px 0; }
     .menu-item { display: flex; align-items: center; justify-content: space-between; background: #fff3e0; border: 2px solid #ff9800; border-radius: 10px; padding: 12px; margin: 10px 0; }
-    .notification-container { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 2000; width: 90%; max-width: 420px; }
-    .order-notification { background: #fff3e0; border: 3px solid #d84315; border-radius: 12px; padding: 15px; margin-bottom: 10px; box-shadow: 0 6px 20px rgba(216, 67, 21, 0.3); }
-    .payment-section { background: #e8f5e9; border: 3px solid #2e7d32; border-radius: 12px; padding: 15px; margin: 15px 0; }
-    .phonepay-qr img { width: 260px; border: 6px solid #d84315; border-radius: 15px; cursor: pointer; }
-    #customerAcceptedMsg, #paymentSuccessMsg { display: none; background: #2e7d32; color: white; padding: 20px; margin: 15px 0; border-radius: 12px; text-align: center; font-size: 18px; font-weight: bold; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-   th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+    th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
     .kitchen-view {
         display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         background: #0f0f0f; color: #fff; overflow-y: auto; z-index: 9999;
@@ -69,7 +64,6 @@
         <button class="lang-btn" onclick="changeLanguage('hi')">हिंदी</button>
         <button class="lang-btn" onclick="changeLanguage('or')">ଓଡ଼ିଆ</button>
     </div>
-
     <!-- STAFF POS VIEW -->
     <div id="staffView">
         <div class="logo">
@@ -93,35 +87,13 @@
         </table>
         <label><input type="checkbox" id="gst" checked onchange="renderBill()"> GST 5%</label>
         <div class="total">Total: ₹ <span id="total">0</span></div>
-
-        <!-- UPDATED PRINTING OPTIONS - MATCHING YOUR SCREENSHOT -->
-        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin: 15px 0; justify-content: center;">
-            <button onclick="printBill()" 
-                    style="background:#2e7d32; color:white; padding:12px 15px; font-size:15px; border:none; border-radius:6px; cursor:pointer; flex:1; min-width:140px;">
-                🖨️ Normal Print & Clear
-            </button>
-            
-            <button onclick="printThermalBill()" 
-                    style="background:#d32f2f; color:white; padding:12px 15px; font-size:15px; border:none; border-radius:6px; cursor:pointer; flex:1; min-width:160px;">
-                🖨️ Print Thermal + Auto Cut
-            </button>
-            
-            <button onclick="sendWhatsApp()" 
-                    style="background:#25D366; color:white; padding:12px 15px; font-size:15px; border:none; border-radius:6px; cursor:pointer; flex:1; min-width:160px;">
-                📱 Send Bill on WhatsApp
-            </button>
-            
-            <button onclick="closePOS()" 
-                    style="background:#00695c; color:white; padding:12px 15px; font-size:15px; border:none; border-radius:6px; cursor:pointer; flex:1; min-width:100px;">
-                ✕ Close
-            </button>
-        </div>
-
-        <button onclick="exportExcel()" style="background:#ff9800; margin-top:8px;">📊 Export Excel</button>
-        <button onclick="dailyReport()" style="background:#ff9800; margin-top:8px;">📊 Daily Report</button>
-        <button onclick="showTableOrders()" style="background:#d84315; margin-top:8px;">📋 Live Table Orders</button>
+        <button onclick="printBill()">🧾 Normal Print & Clear</button>
+        <button onclick="printThermalBill()" style="background:#d84315;">🖨️ Print Thermal + Auto Cut</button>
+        <button onclick="exportExcel()">📊 Export Excel</button>
+        <button onclick="sendWhatsApp()">📲 WhatsApp</button>
+        <button onclick="dailyReport()">📊 Daily Report</button>
+        <button onclick="showTableOrders()" style="background:#d84315;">📋 Live Table Orders</button>
         <button onclick="openKitchenDisplay()" style="background:#e65100; margin-top:8px;">🔥 Open Kitchen Display</button>
-
         <h4>Manage Menu (Real-time Sync)</h4>
         <input id="newItemName" placeholder="New Item Name (English)">
         <input id="newItemPrice" type="number" placeholder="Price (₹)">
@@ -132,12 +104,10 @@
             <div id="currentMenuList"></div>
             <button onclick="hideCurrentMenu()" style="background:#666; margin-top:10px;">Close Menu</button>
         </div>
-
         <h4>Generate QR for Table Ordering</h4>
         <input id="qrTableNum" type="number" placeholder="Table Number">
         <button onclick="generateQRCode()" style="background:#ff9800;">📱 Generate Table QR</button>
         <div id="qrContainer" style="text-align:center;margin:15px 0;"></div>
-
         <div id="liveOrdersSection" style="display:none; margin-top:20px;">
             <h4 style="color:#d84315;">📋 Live Table Orders (Real-time)</h4>
             <div id="liveOrdersContainer" style="max-height:400px; overflow-y:auto;">
@@ -149,7 +119,6 @@
             <button onclick="showTableOrders()" style="margin-top:10px;background:#666;">Close Live Orders</button>
         </div>
     </div>
-
     <!-- CUSTOMER VIEW -->
     <div id="customerView" style="display:none;">
         <div class="logo">
@@ -180,13 +149,7 @@
                 <h4 id="paymentTitle" style="margin:12px 0 8px 0; color:#2e7d32;">💰 Payment Options</h4>
                 <input id="custWhatsApp" type="tel" placeholder="WhatsApp Number (for receipt)" maxlength="10">
                 <h4 style="margin:15px 0 8px 0; color:#6739B7; text-align:center;">📱 Click & Pay - Exact Bill Amount</h4>
-                <p style="text-align:center; font-size:14px; color:#d84315; margin:8px 0 12px 0;">
-                    Tap the QR code below to directly open PhonePe with your exact bill amount
-                </p>
-                <div id="dynamicPhonePeQR" class="phonepay-qr" style="display:none; text-align:center;"></div>
-                <p style="text-align:center; font-size:13px; color:#666;">
-                    💡 If payment fails, open PhonePe app → Scan QR code
-                </p>
+                <div id="dynamicPhonePeQR" style="display:none; text-align:center;"></div>
                 <button onclick="payByCash()" class="cash-btn" style="margin-top:15px;">💵 Pay by Cash</button>
                 <input id="paidAmount" type="number" placeholder="Enter Paid Amount ₹" style="margin-top:12px;">
                 <button onclick="markAsPaid()" id="paidBtn" style="background:#2e7d32; margin-top:10px;">
@@ -194,14 +157,6 @@
                 </button>
             </div>
             <button onclick="clearCustomerOrder()" id="clearCartBtn" style="background:#666;">🗑️ Clear Cart</button>
-            <div id="customerAcceptedMsg">
-                ✅ Your order has been accepted by the kitchen!<br>
-                <span style="font-size:16px;">Our team is now preparing your food. Thank you!</span>
-            </div>
-            <div id="paymentSuccessMsg">
-                ✅ Payment Received Successfully!<br>
-                <span style="font-size:18px;">Receipt sent to WhatsApp. Thank You!</span>
-            </div>
         </div>
     </div>
 </div>
@@ -256,9 +211,7 @@ function changeLanguage(lang) {
     document.getElementById('paymentTitle').textContent = t.paymentTitle;
     document.getElementById('paidBtn').textContent = t.iHavePaid;
     document.getElementById('clearCartBtn').textContent = t.clearCart;
-    if (document.getElementById("menuSection") && document.getElementById("menuSection").style.display !== "none") {
-        loadCustomerMenu();
-    }
+    if (document.getElementById("menuSection").style.display !== "none") loadCustomerMenu();
 }
 
 // ====================== FIREBASE ======================
@@ -275,12 +228,12 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const MERCHANT_UPI = "8847810037jp@ybl";
 const MERCHANT_NAME = "Shree & Shriyan Dhaba";
-
 let items = [];
 let bill = [];
-let currentTable = '';
 let customerOrder = [];
+let currentTable = '';
 let currentName = '';
+let currentOrderId = null;
 let count = parseInt(localStorage.getItem("inv") || "1");
 let liveOrdersRef = null;
 let voiceSpeed = 0.95;
@@ -411,7 +364,7 @@ function listenToCustomerOrderStatus() {
     });
 }
 
-// ====================== PAYMENT FUNCTIONS ======================
+// ====================== PAYMENT NOTIFICATION ======================
 function notifyStaffAboutPayment(paymentData) {
     currentPaymentOrder = paymentData;
     document.getElementById('modalTitle').innerHTML = '💰 PAYMENT RECEIVED';
@@ -421,6 +374,7 @@ function notifyStaffAboutPayment(paymentData) {
     document.getElementById('newOrderModal').style.display = 'flex';
 }
 
+// ====================== PAYMENT FUNCTIONS ======================
 function markAsPaid() {
     const whatsappNum = document.getElementById("custWhatsApp").value.trim();
     const total = parseFloat(document.getElementById("custTotal").innerText) || 0;
@@ -461,13 +415,24 @@ function payByCash() {
     renderCustomerOrder();
 }
 function sendCustomerBillToWhatsApp(mobile) {
-    let msg = `Shree & Shriyan Dhaba Bill\nTable ${currentTable} - ${currentName}\n\n`;
+    if (customerOrder.length === 0) return;
+    let msg = `*Shree & Shriyan Dhaba*\n\n`;
+    msg += `📍 Durlaga, Jharsuguda, Odisha\n`;
+    msg += `📞 +91 7077088311\n\n`;
+    msg += `Table: ${currentTable}\n`;
+    msg += `Customer: ${currentName}\n`;
+    msg += `Date: ${new Date().toLocaleString()}\n\n`;
+    msg += `──────────────────\n`;
     customerOrder.forEach(item => {
         const amt = item.qty * item.price;
-        msg += `${item.name_en} x${item.qty} = ₹${amt}\n`;
+        msg += `${item.name_en} ×${item.qty} = ₹${amt}\n`;
     });
     const total = parseFloat(document.getElementById("custTotal").innerText) || 0;
-    msg += `\nTotal: ₹${total}\n\nThank You!`;
+    msg += `──────────────────\n`;
+    msg += `*Total : ₹${total}*\n\n`;
+    msg += `Thank You! Visit Again 😊\n\n`;
+    msg += `📱 Pay via UPI: 8847810037jp@ybl`;
+
     window.open(`https://wa.me/91${mobile}?text=${encodeURIComponent(msg)}`, '_blank');
     customerOrder = [];
     renderCustomerOrder();
@@ -553,15 +518,20 @@ window.sendWhatsAppFromModal = function(orderId) {
     db.ref('tableOrders/' + orderId).once('value', (snapshot) => {
         const order = snapshot.val();
         if (!order) return;
-        let msg = `Shree & Shriyan Dhaba Bill\nTable ${order.table} - ${order.name || 'Guest'}\n\n`;
-        order.items.forEach(item => msg += `${item.name_en} x${item.qty} = ₹${item.qty * item.price}\n`);
-        msg += `\nTotal: ₹${order.total}\n\nThank You!`;
+        let msg = `*Shree & Shriyan Dhaba*\n\n`;
+        msg += `📍 Durlaga, Jharsuguda, Odisha\n`;
+        msg += `📞 +91 7077088311\n\n`;
+        msg += `Table: ${order.table} - ${order.name || 'Guest'}\n`;
+        msg += `Date: ${order.timestamp || new Date().toLocaleString()}\n\n`;
+        msg += `──────────────────\n`;
+        order.items.forEach(item => {
+            msg += `${item.name_en} ×${item.qty} = ₹${item.qty * item.price}\n`;
+        });
+        msg += `──────────────────\n`;
+        msg += `*Total : ₹${order.total}*\n\n`;
+        msg += `Thank You! Visit Again 😊`;
         window.open(`https://wa.me/91${mobile}?text=${encodeURIComponent(msg)}`, '_blank');
     });
-};
-window.saveBillFromModal = function(orderId) {
-    closeBillOptionsModal();
-    alert("✅ Bill Saved Successfully");
 };
 
 // ====================== MENU ======================
@@ -687,10 +657,14 @@ function printBill() {
     const gst = gstEnabled ? Math.round(subtotal * 0.05) : 0;
     const grandTotal = subtotal + gst;
     const customer = document.getElementById("customerName").value || "Walk-in";
+
     const printWindow = window.open('', '_blank');
     let htmlContent = '<html><head><title>Bill - Shree & Shriyan Dhaba</title>';
-    htmlContent += '<style>body{font-family:monospace;padding:20px;max-width:300px;margin:auto;}table{width:100%;border-collapse:collapse;}th,td{border-bottom:1px dotted #000;padding:4px 0;}</style></head><body>';
-    htmlContent += '<div style="text-align:center;"><h2>Shree & Shriyan Dhaba</h2>';
+    htmlContent += '<style>body{font-family:monospace;padding:20px;max-width:300px;margin:auto;}table{width:100%;border-collapse:collapse;}th,td{border-bottom:1px dotted #000;padding:4px 0;text-align:center;} img{display:block;margin:10px auto;}</style></head><body>';
+    
+    htmlContent += '<div style="text-align:center;">';
+    htmlContent += '<img src="./logo_180x90.jpg" alt="Shree & Shriyan Dhaba" style="max-width:180px;height:auto;">';
+    htmlContent += '<h2>Shree & Shriyan Dhaba</h2>';
     htmlContent += '<p style="font-size:12px;">Durlaga, Jharsuguda, Odisha<br>📞 +91 7077088311</p>';
     htmlContent += '<p>Customer: ' + customer + ' | Invoice: INV' + String(count).padStart(3,'0') + '</p>';
     htmlContent += '<p>Date: ' + new Date().toLocaleString() + '</p>';
@@ -702,8 +676,9 @@ function printBill() {
     htmlContent += '<p>Subtotal: ₹' + subtotal + '</p>';
     if (gstEnabled) htmlContent += '<p>GST (5%): ₹' + gst + '</p>';
     htmlContent += '<h3 style="text-align:center;">Grand Total: ₹' + grandTotal + '</h3>';
-    htmlContent += '<p style="text-align:center; font-size:12px;">Thank You! Visit Again 😊</p></div>';
+    htmlContent += '<p style="text-align:center; font-size:12px;">Thank You! Visit Again</p></div>';
     htmlContent += '<script>window.print(); setTimeout(() => window.close(), 800);<\/script></body></html>';
+    
     printWindow.document.write(htmlContent);
     printWindow.document.close();
     bill = [];
@@ -714,7 +689,7 @@ function printBill() {
 }
 function printThermalBill() {
     if (bill.length === 0) return alert("Bill is empty!");
-    alert("🖨️ Thermal Print triggered.\n\n(For real thermal printing, use ESC/POS printer or QZ Tray in future.)");
+    alert("🖨️ Thermal Print triggered with Logo.\n\n(For real thermal printing, use ESC/POS printer or QZ Tray in future.)");
     printBill();
 }
 
@@ -737,23 +712,36 @@ function exportExcel() {
     link.click();
     alert("✅ Bill exported as CSV!");
 }
+
 function sendWhatsApp() {
     if (bill.length === 0) return alert("Bill is empty!");
     const mobile = prompt("Enter 10 digit mobile number:");
     if (!mobile || mobile.length !== 10) return alert("Please enter valid 10-digit number!");
+
     const subtotal = bill.reduce((sum, b) => sum + (b.qty * b.price), 0);
     const gst = gstEnabled ? Math.round(subtotal * 0.05) : 0;
     const total = subtotal + gst;
-    let msg = `Shree & Shriyan Dhaba Bill\n\n`;
-    bill.forEach(b => msg += `${b.name} x${b.qty} = ₹${b.qty * b.price}\n`);
-    msg += `\nSubtotal: ₹${subtotal}\nGST 5%: ₹${gst}\nGrand Total: ₹${total}\n\nThank You!`;
-    window.open(`https://wa.me/91${mobile}?text=${encodeURIComponent(msg)}`, '_blank');
-}
 
-function closePOS() {
-    if (confirm("Do you want to close the POS?")) {
-        window.close();
-    }
+    let msg = `*Shree & Shriyan Dhaba*\n\n`;
+    msg += `📍 Durlaga, Jharsuguda, Odisha\n`;
+    msg += `📞 +91 7077088311\n\n`;
+    msg += `Customer: ${document.getElementById("customerName").value || "Walk-in"}\n`;
+    msg += `Invoice: INV${String(count).padStart(3,'0')}\n`;
+    msg += `Date: ${new Date().toLocaleString()}\n\n`;
+    msg += `──────────────────\n`;
+
+    bill.forEach(b => {
+        msg += `${b.name} ×${b.qty} = ₹${b.qty * b.price}\n`;
+    });
+
+    msg += `──────────────────\n`;
+    msg += `Subtotal : ₹${subtotal}\n`;
+    if (gstEnabled) msg += `GST (5%) : ₹${gst}\n`;
+    msg += `*Grand Total : ₹${total}*\n\n`;
+    msg += `Thank You! Visit Again 😊\n\n`;
+    msg += `📱 Pay via UPI: 8847810037jp@ybl`;
+
+    window.open(`https://wa.me/91${mobile}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
 function dailyReport() {
@@ -931,6 +919,7 @@ function initializeApp() {
     document.getElementById("invoice").value = "INV" + String(count).padStart(3, '0');
     loadAndListenMenu();
 }
+
 initializeApp();
 window.onbeforeunload = () => localStorage.setItem("inv", count);
 </script>
