@@ -672,20 +672,34 @@ function renderStaffMenu() {
 async function addNewMenuItem() {
     const nameEn = document.getElementById("newItemName").value.trim();
     const price = parseFloat(document.getElementById("newItemPrice").value);
-    if (!nameEn || isNaN(price) || price <= 0) return alert("Please enter valid item name and price");
+
+    if (!nameEn || isNaN(price) || price <= 0) 
+        return alert("Please enter valid item name and price");
+
     const existingIndex = items.findIndex(i => i.name_en && i.name_en.toLowerCase() === nameEn.toLowerCase());
+
     let nameHi = nameEn, nameOr = nameEn;
     if (existingIndex === -1) {
         nameHi = await translateText(nameEn, 'hi');
         nameOr = await translateText(nameEn, 'or');
     }
+
+    const itemData = {
+        name_en: nameEn,
+        name_hi: nameHi,
+        name_or: nameOr,
+        price: price,
+        available: true   // ← NEW FIELD
+    };
+
     if (existingIndex !== -1) {
-        items[existingIndex].price = price;
-        alert(`Price updated for "${nameEn}"`);
+        items[existingIndex] = { ...items[existingIndex], ...itemData };
+        alert(`Price & status updated for "${nameEn}"`);
     } else {
-        items.push({ name_en: nameEn, name_hi: nameHi, name_or: nameOr, price: price });
+        items.push(itemData);
         alert(`✅ "${nameEn}" added successfully!`);
     }
+
     saveMenu();
     document.getElementById("newItemName").value = "";
     document.getElementById("newItemPrice").value = "";
@@ -712,18 +726,39 @@ function hideCurrentMenu() {
 function renderCurrentMenu() {
     const container = document.getElementById("currentMenuList");
     container.innerHTML = "";
+
     if (items.length === 0) {
         container.innerHTML = "<p style='text-align:center; color:#999;'>No menu items found.</p>";
         return;
     }
+
     items.forEach((item, index) => {
+        const isAvailable = item.available !== false; // default = available
+
         const div = document.createElement("div");
-        div.style.marginBottom = "12px";
+        div.style.marginBottom = "15px";
+        div.style.padding = "12px";
+        div.style.border = "2px solid " + (isAvailable ? "#4caf50" : "#f44336");
+        div.style.borderRadius = "10px";
+        div.style.background = isAvailable ? "#f1f8e9" : "#ffebee";
+
         div.innerHTML = `
-            <strong>${item.name_en}</strong><br>
+            <strong style="font-size:16px;">${item.name_en}</strong><br>
             <small>Hindi: ${item.name_hi || '-'} | Odia: ${item.name_or || '-'}</small><br>
-            <strong>Price: ₹${item.price}</strong>
-            <button onclick="deleteMenuItem(${index})" style="background:#e74c3c; color:white; float:right; padding:5px 10px; border:none; border-radius:4px; cursor:pointer;">Delete</button>
+            <strong>Price: ₹${item.price}</strong><br><br>
+            
+            <button onclick="toggleAvailability(${index})" 
+                    style="background:${isAvailable ? '#f44336' : '#4caf50'}; 
+                           color:white; padding:8px 16px; border:none; 
+                           border-radius:6px; cursor:pointer; font-weight:bold;">
+                ${isAvailable ? '🚫 Mark Not Available' : '✅ Mark Available'}
+            </button>
+            
+            <button onclick="deleteMenuItem(${index})" 
+                    style="background:#e74c3c; color:white; padding:8px 16px; 
+                           border:none; border-radius:6px; cursor:pointer; margin-left:8px;">
+                Delete
+            </button>
         `;
         container.appendChild(div);
     });
@@ -736,7 +771,18 @@ function deleteMenuItem(index) {
     renderCurrentMenu();
     renderStaffMenu();
 }
+function toggleAvailability(index) {
+    if (index < 0 || index >= items.length) return;
 
+    items[index].available = !items[index].available;   // toggle status
+
+    const status = items[index].available ? "Available" : "Not Available";
+    alert(`"${items[index].name_en}" is now ${status}`);
+
+    saveMenu();           // Save to Firebase
+    renderCurrentMenu();  // Refresh staff view
+}
+    
 // ====================== STAFF BILLING ======================
 function addItem() {
     const idx = document.getElementById("item").value;
@@ -1005,15 +1051,31 @@ function loadCustomerMenu() {
         document.getElementById("menuItems").innerHTML = "<p style='text-align:center;color:#999;'>Loading menu...</p>";
         return;
     }
+
     items.forEach((item, idx) => {
+        const isAvailable = item.available !== false;
+
         let displayName = item.name_en;
         if (currentLang === 'hi' && item.name_hi) displayName = item.name_hi;
         if (currentLang === 'or' && item.name_or) displayName = item.name_or;
-        html += `<div class="menu-item">
-            <span><strong>${displayName}</strong> <small>₹${item.price}</small></span>
-            <button onclick="addCustomerItem(${idx})" style="background:#2e7d32;padding:8px 16px;border-radius:6px;">+ Add</button>
+
+        html += `<div class="menu-item" style="opacity: ${isAvailable ? '1' : '0.6'}; border-color: ${isAvailable ? '#ff9800' : '#f44336'};">
+            <span>
+                <strong>${displayName}</strong> 
+                <small>₹${item.price}</small>
+                ${!isAvailable ? '<br><small style="color:#f44336; font-weight:bold;">(Not Available Today)</small>' : ''}
+            </span>
+            
+            <button onclick="addCustomerItem(${idx})" 
+                    style="background:${isAvailable ? '#2e7d32' : '#999'}; 
+                           padding:8px 16px; border-radius:6px; 
+                           cursor: ${isAvailable ? 'pointer' : 'not-allowed'};"
+                    ${!isAvailable ? 'disabled' : ''}>
+                ${isAvailable ? '+ Add' : 'Not Available'}
+            </button>
         </div>`;
     });
+
     document.getElementById("menuItems").innerHTML = html;
 }
 
