@@ -3,6 +3,7 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Shree & Shriyan Dhaba POS - Sync Enabled</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
     body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #ff9800, #ff5722); padding: 10px; margin: 0; }
     .container { max-width: 520px; margin: auto; background: white; padding: 15px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
@@ -119,6 +120,7 @@
         <button onclick="exportExcel()">📊 Export Excel</button>
         <button onclick="sendWhatsApp()">📲 WhatsApp</button>
         <button onclick="dailyReport()">📊 Daily Report</button>
+        <button onclick="manageBills()" style="background:#d84315;">📋 Manage Bills</button>
         <button onclick="showTableOrders()" style="background:#d84315;">📋 Live Table Orders</button>
         <button onclick="openKitchenDisplay()" style="background:#e65100; margin-top:8px;">🔥 Open Kitchen Display</button>
 
@@ -268,6 +270,9 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+    // ====================== GOOGLE SHEETS CONFIG ======================
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby41yg2-33yViDkrPKGU0P4Ai3FIErPgV45PnVFejFN_ZzM6Gm6WqrfvuM1qKCIHYHdTA/exec";
+ 
 
 const MERCHANT_UPI = "8847810037jp@ybl";
 const MERCHANT_NAME = "Shree & Shriyan Dhaba";
@@ -461,12 +466,21 @@ function notifyCashPaymentToStaff() {
 }
 
 function showCashStaffPopup(data) {
+    // Strong safety: Never show this popup on Customer QR page
+    const staffView = document.getElementById('staffView');
+    if (!staffView || staffView.style.display === 'none') {
+        return;   // Exit - Do not show anything on customer side
+    }
+
+    currentPaymentOrder = data; 
     const modal = document.getElementById('cashStaffModal');
     const detailsDiv = document.getElementById('cashStaffDetails');
+    
     let itemsHtml = '';
-    data.items.forEach(item => {
-        itemsHtml += `${item.qty}× ${item.name_en} = ₹${item.qty * item.price}<br>`;
+    (data.items || []).forEach(item => {
+        itemsHtml += `${item.qty}× ${item.name_en || item.name} = ₹${item.qty * item.price}<br>`;
     });
+
     detailsDiv.innerHTML = `
         <strong>Table: ${data.table}</strong><br>
         Customer: ${data.name}<br><br>
@@ -479,7 +493,21 @@ function showCashStaffPopup(data) {
 }
 
 function closeCashStaffModal() {
-    document.getElementById('cashStaffModal').style.display = 'none';
+    const modal = document.getElementById('cashStaffModal');
+    modal.style.display = 'none';
+
+    // FIX: Remove the cash notification from Firebase so it doesn't show again
+    if (currentPaymentOrder && currentPaymentOrder.id) {
+        db.ref('tableOrders/' + currentPaymentOrder.id).remove()
+            .then(() => {
+                console.log("✅ Cash payment notification cleared successfully");
+            })
+            .catch(err => {
+                console.error("Error removing cash notification:", err);
+            });
+
+        currentPaymentOrder = null;
+    }
 }
 
 function markAsPaid() {
@@ -507,15 +535,17 @@ function markAsPaid() {
 function payByCash() {
     if (customerOrder.length === 0) return alert("Cart is empty!");
 
-    // This sends only cash notification to staff (no kitchen order)
+    // Send notification to staff
     notifyCashPaymentToStaff();
 
-    // Clear the customer's cart after requesting cash
+    // Clear cart for customer
     customerOrder = [];
     renderCustomerOrder();
 
-    alert("✅ Cash Payment Request Sent to Staff!\nPlease wait, staff will come to collect cash.");
-};
+    // Show ONLY customer-friendly message
+    showCustomerCashConfirmation();
+    speakCustomerCashConfirmation();
+}
 
 
 function sendCustomerBillToWhatsApp(mobile) {
@@ -962,10 +992,39 @@ function voiceAdd() {
 // ====================== PRINTING ======================
 function printBill() {
     if (bill.length === 0) return alert("Bill is empty!");
+
     const subtotal = bill.reduce((sum, b) => sum + (b.qty * b.price), 0);
     const gst = gstEnabled ? Math.round(subtotal * 0.05) : 0;
     const grandTotal = subtotal + gst;
-    const customer = document.getElementById("customerName").value || "Walk-in";
+
+    const customer = document.getElementById("customerName").value.trim() || "Walk-in";
+    const invoiceNo = document.getElementById("invoice").value;
+
+    // === SAVE BILL TO GOOGLE SHEETS ===
+    const billData = {
+        invoiceNo: invoiceNo,
+        type: "staff_pos",
+        tableInfo: "Walk-in",
+        customerName: customer,
+        items: bill,
+        subtotal: subtotal,
+        gst: gst,
+        grandTotal: grandTotal,
+        date: new Date().toISOString().split('T')[0]
+    };
+
+    fetch(GOOGLE_SCRIPT_URL, {
+        method: "POST",
+        body: JSON.stringify(billData),
+        headers: { "Content-Type": "application/json" }
+    })
+    .then(res => res.json())
+    .then(result => {
+        if (result.status === "success") console.log("✅ Bill saved to Google Sheets");
+    })
+    .catch(err => console.error("Google Sheets save failed:", err));
+
+    // === PRINT THE BILL ===
     const printWindow = window.open('', '_blank');
     let htmlContent = '<html><head><title>Bill - Shree & Shriyan Dhaba</title>';
     htmlContent += '<style>body{font-family:monospace;padding:20px;max-width:300px;margin:auto;}table{width:100%;border-collapse:collapse;}th,td{border-bottom:1px dotted #000;padding:4px 0;text-align:center;} img{display:block;margin:10px auto;}</style></head><body>';
@@ -973,7 +1032,7 @@ function printBill() {
     htmlContent += '<img src="./logo_180x90.jpg" alt="Shree & Shriyan Dhaba" style="max-width:180px;height:auto;">';
     htmlContent += '<h2>Shree & Shriyan Dhaba</h2>';
     htmlContent += '<p style="font-size:12px;">Durlaga, Jharsuguda, Odisha<br>📞 +91 7077088311</p>';
-    htmlContent += '<p>Customer: ' + customer + ' | Invoice: INV' + String(count).padStart(3,'0') + '</p>';
+    htmlContent += '<p>Customer: ' + customer + ' | Invoice: ' + invoiceNo + '</p>';
     htmlContent += '<p>Date: ' + new Date().toLocaleString() + '</p>';
     htmlContent += '<table><thead><tr><th>Item</th><th>Qty</th><th>Amt</th></tr></thead><tbody>';
     bill.forEach(b => {
@@ -987,6 +1046,8 @@ function printBill() {
     htmlContent += '<script>window.print(); setTimeout(() => window.close(), 800);<\/script></body></html>';
     printWindow.document.write(htmlContent);
     printWindow.document.close();
+
+    // Clear bill and update invoice
     bill = [];
     renderBill();
     count++;
@@ -1018,7 +1079,6 @@ function exportExcel() {
     link.click();
     alert("✅ Bill exported as CSV!");
 }
-
 function sendWhatsApp() {
     if (bill.length === 0) return alert("Bill is empty!");
     const mobile = prompt("Enter 10 digit mobile number:");
@@ -1046,26 +1106,38 @@ function sendWhatsApp() {
 }
 
 function dailyReport() {
-    const today = new Date().toLocaleDateString();
-    db.ref('tableOrders').once('value', (snapshot) => {
-        const data = snapshot.val();
-        if (!data) return alert("No sales today!");
-        let csv = "Date,Table,Customer,Total,Status\n";
-        let totalSales = 0;
-        Object.keys(data).forEach(key => {
-            const order = data[key];
-            if (order.timestamp && order.timestamp.includes(today)) {
-                csv += `${order.timestamp},${order.table || 'Walk-in'},${order.name || 'Guest'},${order.total || 0},${order.status || 'pending'}\n`;
-                totalSales += parseFloat(order.total || 0);
+    const today = new Date().toISOString().split('T')[0];
+
+    fetch(`${GOOGLE_SCRIPT_URL}?date=${today}`)
+        .then(res => res.json())
+        .then(bills => {
+            if (bills.length === 0) {
+                return alert("No bills found for today!");
             }
+
+            const dataForExcel = bills.map(b => ({
+                Timestamp: b[0],
+                "Invoice No": b[1],
+                Type: b[2],
+                "Table/Customer": b[3],
+                "Customer Name": b[4],
+                Subtotal: b[6],
+                "GST (5%)": b[7],
+                "Grand Total": b[8],
+                Date: b[9]
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(dataForExcel);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Daily Report");
+            XLSX.writeFile(wb, `Dhaba_Daily_Report_${today}.xlsx`);
+
+            alert(`✅ Daily Report Exported Successfully!\nTotal Bills: ${bills.length}\nTotal Sales Today: ₹${bills.reduce((sum, b) => sum + (parseFloat(b[8])||0), 0)}`);
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Cannot connect to Google Sheet.\nPlease check your internet connection.");
         });
-        csv += `\n,,,Total Sales Today,₹${totalSales}\n`;
-        const link = document.createElement("a");
-        link.href = "data:text/csv;charset=utf-8," + encodeURI(csv);
-        link.download = `Daily_Sales_${today.replace(/\//g,'-')}.csv`;
-        link.click();
-        alert("✅ Daily Sales Report exported as CSV!");
-    });
 }
 
 // ====================== LIVE TABLE ORDERS ======================
@@ -1110,40 +1182,124 @@ function deleteLiveOrder(orderId) {
     if (!confirm("Delete this order?")) return;
     db.ref('tableOrders/' + orderId).remove();
 }
+// ====================== MANAGE & DELETE BILLS (Google Sheets) ======================
+let allBillsData = [];
 
-// ====================== REAL-TIME LISTENER FOR STAFF (ORDERS + CASH PAYMENTS) ======================
+function manageBills() {
+    const modalHTML = `
+    <div id="manageBillsModal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:100000;display:flex;align-items:center;justify-content:center;">
+        <div style="background:white;width:95%;max-width:920px;max-height:90vh;border-radius:15px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.4);">
+            <div style="background:#d84315;color:white;padding:15px 20px;font-size:20px;font-weight:bold;display:flex;justify-content:space-between;">
+                <span>🗑️ Manage & Delete Bills</span>
+                <span onclick="closeManageModal()" style="cursor:pointer;font-size:28px;">×</span>
+            </div>
+            <div style="padding:20px;overflow:auto;max-height:70vh;" id="billsTableContainer">
+                <p style="text-align:center;color:#666;">Loading bills from Google Sheet...</p>
+            </div>
+            <div style="padding:15px;background:#f8f9fa;text-align:right;">
+                <button onclick="closeManageModal()" style="padding:10px 25px;background:#666;color:white;border:none;border-radius:8px;margin-right:10px;">Close</button>
+            </div>
+        </div>
+    </div>`;
+
+    if (document.getElementById('manageBillsModal')) document.getElementById('manageBillsModal').remove();
+    const div = document.createElement('div');
+    div.innerHTML = modalHTML;
+    document.body.appendChild(div.firstElementChild);
+
+    loadAllBills();
+}
+
+function loadAllBills() {
+    fetch(`${GOOGLE_SCRIPT_URL}?action=all`)
+        .then(res => res.json())
+        .then(bills => {
+            allBillsData = bills;
+            renderBillsTable(bills);
+        })
+        .catch(() => {
+            document.getElementById('billsTableContainer').innerHTML = `<p style="color:red;text-align:center;">Failed to load bills.<br>Check internet connection.</p>`;
+        });
+}
+
+function renderBillsTable(bills) {
+    if (bills.length === 0) {
+        document.getElementById('billsTableContainer').innerHTML = `<p style="text-align:center;color:#999;">No bills found in Google Sheet.</p>`;
+        return;
+    }
+
+    let html = `<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:#fff3e0;"><th style="padding:12px;border:1px solid #ddd;text-align:left;">Date</th><th style="padding:12px;border:1px solid #ddd;">Invoice No</th><th style="padding:12px;border:1px solid #ddd;">Type</th><th style="padding:12px;border:1px solid #ddd;">Customer / Table</th><th style="padding:12px;border:1px solid #ddd;text-align:right;">Amount</th><th style="padding:12px;border:1px solid #ddd;width:110px;">Action</th></tr></thead><tbody>`;
+
+    bills.forEach((bill, index) => {
+        const rowNumber = index + 2;
+        const grandTotal = parseFloat(bill[8]) || 0;
+        const display = bill[3] ? `${bill[3]} - ${bill[4] || 'Guest'}` : (bill[4] || 'Guest');
+
+        html += `<tr style="border-bottom:1px solid #ddd;">
+            <td style="padding:12px;">${bill[9]||'N/A'}</td>
+            <td style="padding:12px;font-weight:bold;">${bill[1]||'N/A'}</td>
+            <td style="padding:12px;">${bill[2]||'staff_pos'}</td>
+            <td style="padding:12px;">${display}</td>
+            <td style="padding:12px;text-align:right;font-weight:bold;color:#d84315;">₹${grandTotal}</td>
+            <td style="padding:12px;">
+                <button onclick="deleteBill(${rowNumber})" style="background:#e74c3c;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;">🗑️ Delete</button>
+            </td>
+        </tr>`;
+    });
+
+    html += `</tbody></table>`;
+    document.getElementById('billsTableContainer').innerHTML = html;
+}
+
+window.deleteBill = function(rowIndex) {
+    if (!confirm("⚠️ Delete this bill permanently from Google Sheet?\nThis action cannot be undone!")) return;
+    
+    fetch(`${GOOGLE_SCRIPT_URL}?action=delete&rowIndex=${rowIndex}`)
+        .then(res => res.json())
+        .then(() => {
+            alert("✅ Bill deleted successfully!");
+            loadAllBills();   // refresh list
+        })
+        .catch(() => alert("Error deleting bill. Please try again."));
+};
+
+function closeManageModal() {
+    const modal = document.getElementById('manageBillsModal');
+    if (modal) modal.remove();
+}
+    
+// ====================== REAL-TIME LISTENER ======================
+// ====================== REAL-TIME LISTENER (Fixed - Staff Only) ======================
 db.ref('tableOrders').on('child_added', (snapshot) => {
     const data = snapshot.val();
     if (!data) return;
+
+    // Reliable check: Are we on Staff POS page or Customer QR page?
+    const staffView = document.getElementById('staffView');
+    const isStaffPage = staffView && staffView.style.display !== 'none';
 
     if (data.type === "order" && data.status === "pending") {
         let receivedMsg = `ORDER RECEIVED FROM TABLE ${data.table} ${data.name || 'Guest'}`;
         if (data.lang === 'hi') receivedMsg = `टेबल ${data.table} ${data.name || 'Guest'} से ऑर्डर प्राप्त हुआ`;
         else if (data.lang === 'or') receivedMsg = `ଟେବୁଲ ${data.table} ${data.name || 'Guest'} ରୁ ଅର୍ଡର ପ୍ରାପ୍ତ ହୋଇଛି`;
-
+       
         speak(receivedMsg, data.lang || 'en');
         showNewOrderPopup(data);
     }
-
     else if (data.type === "cash_payment_notification" && data.status === "cash_pending") {
-        let cashMsg = `CASH PAYMENT REQUEST - TABLE ${data.table} - ₹${data.total || 0} - ${data.name || 'Guest'}`;
-        
-        if (data.lang === 'hi') {
-            cashMsg = `टेबल ${data.table} - ₹${data.total || 0} - कैश पेमेंट रिक्वेस्ट - ${data.name || 'Guest'}`;
-        } else if (data.lang === 'or') {
-            cashMsg = `ଟେବୁଲ ${data.table} - ₹${data.total || 0} - କ୍ୟାଶ୍ ପେମେଣ୍ଟ ରିକ୍ୱେଷ୍ଟ - ${data.name || 'Guest'}`;
+        // Show cash notification popup and sound ONLY on STAFF page
+        if (isStaffPage) {
+            let cashMsg = `CASH PAYMENT REQUEST - TABLE ${data.table} - ₹${data.total || 0} - ${data.name || 'Guest'}`;
+            if (data.lang === 'hi') {
+                cashMsg = `टेबल ${data.table} - ₹${data.total || 0} - कैश पेमेंट रिक्वेस्ट - ${data.name || 'Guest'}`;
+            } else if (data.lang === 'or') {
+                cashMsg = `ଟେବୁଲ ${data.table} - ₹${data.total || 0} - କ୍ୟାଶ୍ ପେମେଣ୍ଟ ରିକ୍ୱେଷ୍ଟ - ${data.name || 'Guest'}`;
+            }
+           
+            speak(cashMsg, 'en');
+            showCashStaffPopup(data);
         }
-
-        speak(cashMsg, 'en');
-        showCashStaffPopup(data);
-    }
-});
-
-// ====================== EXTRA SAFETY LISTENER ======================
-db.ref('tableOrders').on('child_changed', (snapshot) => {
-    const data = snapshot.val();
-    if (data && data.type === "cash_payment_notification" && data.status === "cash_pending") {
-        showCashStaffPopup(data);
+        // Customer QR page: Do nothing (no popup, no sound)
     }
 });
 
@@ -1251,7 +1407,85 @@ function clearCustomerOrder() {
         renderCustomerOrder();
     }
 }
+// ====================== CUSTOMER CASH PAYMENT CONFIRMATION ======================
+// Show beautiful popup with Auto-Close Timer (8 seconds)
+function showCustomerCashConfirmation() {
+    // Remove any existing modal first
+    let existing = document.getElementById('customerCashConfirmModal');
+    if (existing) existing.remove();
 
+    const modalHTML = `
+        <div id="customerCashConfirmModal" style="
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.75); z-index: 99999;
+            display: flex; align-items: center; justify-content: center;">
+           
+            <div style="
+                background: white; padding: 30px 25px; border-radius: 20px;
+                text-align: center; max-width: 380px; width: 90%;
+                box-shadow: 0 15px 40px rgba(0,0,0,0.3); border: 5px solid #2e7d32;">
+               
+                <div style="font-size: 60px; margin-bottom: 15px;">✅</div>
+                <h2 style="color: #2e7d32; margin: 10px 0 15px 0;">Request Sent Successfully!</h2>
+                <p style="font-size: 18px; color: #333; line-height: 1.6;">
+                    Your Pay by Cash request has been sent to staff.<br>
+                    <strong>Please wait, staff will come to collect cash.</strong>
+                </p>
+               
+                <div style="margin-top: 20px; font-size: 16px; color: #d84315; font-weight: bold;">
+                    This message will close in <span id="seconds">8</span> seconds
+                </div>
+               
+                <button onclick="closeCustomerCashModal()"
+                        style="margin-top: 25px; padding: 14px 40px; font-size: 18px;
+                               background: #2e7d32; color: white; border: none;
+                               border-radius: 12px; cursor: pointer;">
+                    OK
+                </button>
+            </div>
+        </div>
+    `;
+
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = modalHTML;
+    document.body.appendChild(tempDiv.firstElementChild);
+
+    // Auto-close timer (8 seconds) - Fixed version
+    setTimeout(() => {
+        let timeLeft = 8;
+        const timerElement = document.getElementById('seconds');
+
+        const countdownInterval = setInterval(() => {
+            timeLeft--;
+            if (timerElement) {
+                timerElement.textContent = timeLeft;
+            }
+            if (timeLeft <= 0) {
+                clearInterval(countdownInterval);
+                closeCustomerCashModal();
+            }
+        }, 1000);
+    }, 100);   // Small delay to ensure element exists
+}
+
+// Close the customer confirmation modal
+window.closeCustomerCashModal = function() {
+    const modal = document.getElementById('customerCashConfirmModal');
+    if (modal) modal.remove();
+};
+
+// Voice message only for customer
+function speakCustomerCashConfirmation() {
+    let message = "Your pay by cash request has been sent to staff. Please wait, staff will come to collect cash.";
+
+    if (currentLang === 'hi') {
+        message = "आपका कैश पेमेंट रिक्वेस्ट स्टाफ को भेज दिया गया है। कृपया प्रतीक्षा करें, स्टाफ कैश लेने आएगा।";
+    } else if (currentLang === 'or') {
+        message = "ଆପଣଙ୍କ କ୍ୟାଶ୍ ପେମେଣ୍ଟ ରିକ୍ୱେଷ୍ଟ ଷ୍ଟାଫଙ୍କୁ ପଠାଯାଇଛି। ଦୟାକରି ଅପେକ୍ଷା କରନ୍ତୁ, ଷ୍ଟାଫ କ୍ୟାଶ୍ ନେବାକୁ ଆସିବେ।";
+    }
+
+    speak(message, currentLang);
+}
 // ====================== INITIALIZE ======================
 function initializeApp() {
     const urlParams = new URLSearchParams(window.location.search);
