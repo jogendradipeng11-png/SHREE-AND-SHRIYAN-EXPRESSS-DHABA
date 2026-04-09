@@ -54,6 +54,32 @@
         background: white; padding: 25px; border-radius: 15px; max-width: 420px; width: 90%;
         text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     }
+    .cash-staff-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.8);
+        z-index: 10000;
+        align-items: center;
+        justify-content: center;
+    }
+    .cash-staff-content {
+        background: #fff3e0;
+        padding: 25px;
+        border-radius: 18px;
+        max-width: 420px;
+        width: 92%;
+        text-align: center;
+        border: 5px solid #f57c00;
+        box-shadow: 0 10px 30px rgba(245,124,0,0.5);
+    }
+    .cash-staff-content h3 {
+        color: #d84315;
+        margin: 0 0 15px 0;
+    }
 </style>
 </head>
 <body>
@@ -64,6 +90,7 @@
         <button class="lang-btn" onclick="changeLanguage('hi')">हिंदी</button>
         <button class="lang-btn" onclick="changeLanguage('or')">ଓଡ଼ିଆ</button>
     </div>
+
     <!-- STAFF POS VIEW -->
     <div id="staffView">
         <div class="logo">
@@ -94,6 +121,7 @@
         <button onclick="dailyReport()">📊 Daily Report</button>
         <button onclick="showTableOrders()" style="background:#d84315;">📋 Live Table Orders</button>
         <button onclick="openKitchenDisplay()" style="background:#e65100; margin-top:8px;">🔥 Open Kitchen Display</button>
+
         <h4>Manage Menu (Real-time Sync)</h4>
         <input id="newItemName" placeholder="New Item Name (English)">
         <input id="newItemPrice" type="number" placeholder="Price (₹)">
@@ -104,10 +132,13 @@
             <div id="currentMenuList"></div>
             <button onclick="hideCurrentMenu()" style="background:#666; margin-top:10px;">Close Menu</button>
         </div>
+
         <h4>Generate QR for Table Ordering</h4>
         <input id="qrTableNum" type="number" placeholder="Table Number">
         <button onclick="generateQRCode()" style="background:#ff9800;">📱 Generate Table QR</button>
         <div id="qrContainer" style="text-align:center;margin:15px 0;"></div>
+
+        <!-- Live Table Orders Section -->
         <div id="liveOrdersSection" style="display:none; margin-top:20px;">
             <h4 style="color:#d84315;">📋 Live Table Orders (Real-time)</h4>
             <div id="liveOrdersContainer" style="max-height:400px; overflow-y:auto;">
@@ -119,6 +150,7 @@
             <button onclick="showTableOrders()" style="margin-top:10px;background:#666;">Close Live Orders</button>
         </div>
     </div>
+
     <!-- CUSTOMER VIEW -->
     <div id="customerView" style="display:none;">
         <div class="logo">
@@ -144,7 +176,7 @@
             <div class="total">Your Total: ₹ <span id="custTotal">0</span></div>
             <button onclick="placeCustomerOrder()" id="placeOrderBtn" style="background:#d84315;">✅ Place Order for Kitchen</button>
             <div id="customerOrderStatus" style="display:none; padding:25px; margin:15px 0; border-radius:12px; text-align:center; font-size:22px; font-weight:bold; background:#2e7d32; color:white;"></div>
-           
+         
             <div class="payment-section">
                 <h4 id="paymentTitle" style="margin:12px 0 8px 0; color:#2e7d32;">💰 Payment Options</h4>
                 <input id="custWhatsApp" type="tel" placeholder="WhatsApp Number (for receipt)" maxlength="10">
@@ -176,13 +208,22 @@
     <button onclick="closeKitchenDisplay()" style="position:fixed; bottom:20px; left:50%; transform:translateX(-50%); padding:15px 40px; background:#d84315; font-size:18px;">Close Kitchen Display</button>
 </div>
 
-<!-- NEW ORDER / PAYMENT POPUP NOTIFICATION -->
+<!-- NEW ORDER / PAYMENT POPUP -->
 <div id="newOrderModal" class="modal">
     <div class="modal-content">
         <h3 id="modalTitle" style="color:#d84315;">🚨 NEW ORDER RECEIVED</h3>
         <p id="modalOrderDetails" style="font-size:18px; margin:15px 0;"></p>
         <button onclick="acceptAndPrintFromModal()" style="background:#2e7d32; padding:12px; font-size:18px;">Accept & Print</button>
         <button onclick="closeNewOrderModal()" style="background:#666; padding:12px; font-size:18px; margin-left:10px;">Close</button>
+    </div>
+</div>
+
+<!-- CASH PAYMENT NOTIFICATION POPUP FOR STAFF -->
+<div id="cashStaffModal" class="cash-staff-modal">
+    <div class="cash-staff-content">
+        <h3>💵 CASH PAYMENT REQUEST</h3>
+        <div id="cashStaffDetails" style="background:white; padding:15px; border-radius:12px; margin:15px 0; text-align:left; font-size:16px;"></div>
+        <button onclick="closeCashStaffModal()" style="background:#2e7d32; padding:12px 30px; font-size:17px;">✅ OK - I Will Collect</button>
     </div>
 </div>
 
@@ -196,6 +237,7 @@ const langData = {
     or: { staffTitle: "ଶ୍ରୀ ଏଣ୍ଡ ଶ୍ରୀୟାନ ଢାବା", staffPosLabel: "ଷ୍ଟାଫ POS", welcomeText: "ସ୍ୱାଗତ!", custTitle: "ଶ୍ରୀ ଏଣ୍ଡ ଶ୍ରୀୟାନ ଢାବା", custLabel: "ଟେବୁଲ ଅର୍ଡରିଂ", startOrdering: "✅ ଅର୍ଡରିଂ ଆରମ୍ଭ କରନ୍ତୁ", placeOrderKitchen: "✅ କିଚେନ୍ ପାଇଁ ଅର୍ଡର ପ୍ଲେସ୍ କରନ୍ତୁ", paymentTitle: "💰 ପେମେଣ୍ଟ ବିକଳ୍ପ", iHavePaid: "✅ ମୁଁ ପେମେଣ୍ଟ କରିଛି - ୱାଟ୍ସଆପ୍ ରେ ରସିଦ ପାଆନ୍ତୁ", clearCart: "🗑️ କାର୍ଟ ଖାଲି କରନ୍ତୁ" }
 };
 let currentLang = 'en';
+
 function changeLanguage(lang) {
     currentLang = lang;
     document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
@@ -226,8 +268,10 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+
 const MERCHANT_UPI = "8847810037jp@ybl";
 const MERCHANT_NAME = "Shree & Shriyan Dhaba";
+
 let items = [];
 let bill = [];
 let customerOrder = [];
@@ -242,16 +286,19 @@ let currentPendingOrder = null;
 let currentPaymentOrder = null;
 
 // ====================== SPEECH ======================
-const speech = window.speechSynthesis;
 function speak(text, lang = 'en') {
-    if (!speech) return;
+    if (!('speechSynthesis' in window)) {
+        console.warn("Speech Synthesis not supported");
+        return;
+    }
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = (lang === 'hi') ? 'hi-IN' : (lang === 'or') ? 'or-IN' : 'en-IN';
-    utterance.rate = voiceSpeed;
+    utterance.rate = voiceSpeed || 0.95;
     utterance.pitch = 1.05;
-    speech.cancel();
-    speech.speak(utterance);
+    speechSynthesis.cancel();
+    speechSynthesis.speak(utterance);
 }
+
 function updateVoiceSpeed(value) {
     voiceSpeed = parseFloat(value);
     document.getElementById('speedValue').textContent = voiceSpeed.toFixed(2) + 'x';
@@ -262,29 +309,45 @@ function openKitchenDisplay() {
     document.getElementById('kitchenView').style.display = 'block';
     loadKitchenDisplay();
 }
+
 function closeKitchenDisplay() {
     document.getElementById('kitchenView').style.display = 'none';
-    if (speech) speech.cancel();
+    speechSynthesis.cancel();
 }
+
 function loadKitchenDisplay() {
     const container = document.getElementById('kitchenOrdersContainer');
+    
     db.ref('tableOrders').on('value', (snapshot) => {
         const data = snapshot.val();
         container.innerHTML = '';
         let pendingCount = 0;
+
         if (!data) {
             container.innerHTML = '<div style="text-align:center; padding:100px; color:#888; font-size:28px;">No pending orders at the moment</div>';
             document.getElementById('kitchenCount').textContent = "0 Orders";
             return;
         }
+
         Object.keys(data).forEach((key) => {
             const order = data[key];
-            if (!order || order.status === 'ready' || order.status === 'completed') return;
+
+            // ✅ Only show real kitchen orders
+            // Skip cash payment requests completely
+            if (!order || 
+                order.status === 'ready' || 
+                order.status === 'completed' ||
+                order.type === "cash_payment_notification") {
+                return;
+            }
+
             pendingCount++;
+
             let itemsHtml = '';
             (order.items || []).forEach(item => {
                 itemsHtml += `<div style="padding:8px 0; border-bottom:1px dashed #555;">${item.qty}× ${item.name_en || item.name}</div>`;
             });
+
             const card = document.createElement('div');
             card.className = 'kitchen-card';
             card.innerHTML = `
@@ -299,9 +362,11 @@ function loadKitchenDisplay() {
             `;
             container.appendChild(card);
         });
+
         document.getElementById('kitchenCount').textContent = pendingCount + " Orders";
     });
 }
+
 window.updateOrderStatus = function(orderId, status) {
     const orderRef = db.ref('tableOrders/' + orderId);
     orderRef.once('value', (snapshot) => {
@@ -336,14 +401,13 @@ function placeCustomerOrder() {
     };
     db.ref('tableOrders/' + currentOrderId).set(orderData);
     alert(`✅ Order Placed Successfully for Table ${currentTable}`);
-  
     let sentMsg = `ORDER SENT TO THE KITCHEN TABLE ${currentTable} ${currentName}`;
     if (currentLang === 'hi') sentMsg = `ऑर्डर किचन को भेज दिया गया टेबल ${currentTable} ${currentName}`;
     else if (currentLang === 'or') sentMsg = `ଅର୍ଡର କିଚେନ୍ କୁ ପଠାଯାଇଛି ଟେବୁଲ ${currentTable} ${currentName}`;
     speak(sentMsg, currentLang);
-  
     listenToCustomerOrderStatus();
 }
+
 function listenToCustomerOrderStatus() {
     if (!currentOrderId) return;
     db.ref('tableOrders/' + currentOrderId).on('value', (snapshot) => {
@@ -364,7 +428,7 @@ function listenToCustomerOrderStatus() {
     });
 }
 
-// ====================== PAYMENT NOTIFICATION ======================
+// ====================== PAYMENT FUNCTIONS ======================
 function notifyStaffAboutPayment(paymentData) {
     currentPaymentOrder = paymentData;
     document.getElementById('modalTitle').innerHTML = '💰 PAYMENT RECEIVED';
@@ -374,7 +438,50 @@ function notifyStaffAboutPayment(paymentData) {
     document.getElementById('newOrderModal').style.display = 'flex';
 }
 
-// ====================== PAYMENT FUNCTIONS ======================
+function notifyCashPaymentToStaff() {
+    if (customerOrder.length === 0) return;
+    const total = parseFloat(document.getElementById("custTotal").innerText) || 0;
+    const cashData = {
+        id: Date.now(),
+        table: currentTable,
+        name: currentName,
+        items: JSON.parse(JSON.stringify(customerOrder)),
+        total: total,
+        timestamp: new Date().toLocaleString(),
+        type: "cash_payment_notification",
+        status: "cash_pending",
+        lang: currentLang
+    };
+
+    db.ref('tableOrders/' + cashData.id).set(cashData);
+    showCashStaffPopup(cashData);
+
+    let msg = `CASH PAYMENT REQUEST - TABLE ${currentTable} - ₹${total} - ${currentName}`;
+    speak(msg, 'en');
+}
+
+function showCashStaffPopup(data) {
+    const modal = document.getElementById('cashStaffModal');
+    const detailsDiv = document.getElementById('cashStaffDetails');
+    let itemsHtml = '';
+    data.items.forEach(item => {
+        itemsHtml += `${item.qty}× ${item.name_en} = ₹${item.qty * item.price}<br>`;
+    });
+    detailsDiv.innerHTML = `
+        <strong>Table: ${data.table}</strong><br>
+        Customer: ${data.name}<br><br>
+        <strong>Items:</strong><br>
+        ${itemsHtml}<br>
+        <strong style="color:#d84315; font-size:18px;">Total Amount: ₹${data.total}</strong><br><br>
+        <span style="color:#2e7d32;">Please collect cash from the customer.</span>
+    `;
+    modal.style.display = 'flex';
+}
+
+function closeCashStaffModal() {
+    document.getElementById('cashStaffModal').style.display = 'none';
+}
+
 function markAsPaid() {
     const whatsappNum = document.getElementById("custWhatsApp").value.trim();
     const total = parseFloat(document.getElementById("custTotal").innerText) || 0;
@@ -396,24 +503,21 @@ function markAsPaid() {
     };
     notifyStaffAboutPayment(paymentData);
 }
+
 function payByCash() {
     if (customerOrder.length === 0) return alert("Cart is empty!");
-    const total = parseFloat(document.getElementById("custTotal").innerText) || 0;
-    let details = `Cash Payment Details\n\nTable: ${currentTable}\nCustomer: ${currentName}\nTotal Amount: ₹${total}\n\nPlease collect cash from customer.`;
-    alert(details);
-    const paymentData = {
-        id: Date.now(),
-        table: currentTable,
-        name: currentName,
-        total: total,
-        timestamp: new Date().toLocaleString(),
-        type: "payment",
-        lang: currentLang
-    };
-    notifyStaffAboutPayment(paymentData);
+
+    // This sends only cash notification to staff (no kitchen order)
+    notifyCashPaymentToStaff();
+
+    // Clear the customer's cart after requesting cash
     customerOrder = [];
     renderCustomerOrder();
-}
+
+    alert("✅ Cash Payment Request Sent to Staff!\nPlease wait, staff will come to collect cash.");
+};
+
+
 function sendCustomerBillToWhatsApp(mobile) {
     if (customerOrder.length === 0) return;
     let msg = `*Shree & Shriyan Dhaba*\n\n`;
@@ -432,7 +536,6 @@ function sendCustomerBillToWhatsApp(mobile) {
     msg += `*Total : ₹${total}*\n\n`;
     msg += `Thank You! Visit Again 😊\n\n`;
     msg += `📱 Pay via UPI: 8847810037jp@ybl`;
-
     window.open(`https://wa.me/91${mobile}?text=${encodeURIComponent(msg)}`, '_blank');
     customerOrder = [];
     renderCustomerOrder();
@@ -448,11 +551,13 @@ function showNewOrderPopup(order) {
     document.getElementById('modalOrderDetails').innerHTML = details;
     document.getElementById('newOrderModal').style.display = 'flex';
 }
+
 function closeNewOrderModal() {
     document.getElementById('newOrderModal').style.display = 'none';
     currentPendingOrder = null;
     currentPaymentOrder = null;
 }
+
 function acceptAndPrintFromModal() {
     closeNewOrderModal();
     if (currentPaymentOrder) {
@@ -462,6 +567,7 @@ function acceptAndPrintFromModal() {
         acceptLiveOrder(currentPendingOrder.id);
     }
 }
+
 function acceptLiveOrder(orderId) {
     db.ref('tableOrders/' + orderId).once('value', (snapshot) => {
         const order = snapshot.val();
@@ -470,6 +576,7 @@ function acceptLiveOrder(orderId) {
         showBillOptionsModal(order);
     });
 }
+
 function showBillOptionsModal(order) {
     let modalHTML = `
         <div class="modal" style="display:flex;">
@@ -487,10 +594,12 @@ function showBillOptionsModal(order) {
     tempDiv.innerHTML = modalHTML;
     document.body.appendChild(tempDiv.firstElementChild);
 }
+
 window.closeBillOptionsModal = function() {
     const modals = document.querySelectorAll('.modal');
     if (modals.length) modals[modals.length-1].remove();
 };
+
 window.printNormalFromModal = function(orderId) {
     closeBillOptionsModal();
     db.ref('tableOrders/' + orderId).once('value', (snapshot) => {
@@ -501,6 +610,7 @@ window.printNormalFromModal = function(orderId) {
         alert("✅ Normal Print & Clear done");
     });
 };
+
 window.printThermalFromModal = function(orderId) {
     closeBillOptionsModal();
     db.ref('tableOrders/' + orderId).once('value', (snapshot) => {
@@ -511,6 +621,7 @@ window.printThermalFromModal = function(orderId) {
         alert("✅ Thermal Print + Auto Cut done");
     });
 };
+
 window.sendWhatsAppFromModal = function(orderId) {
     closeBillOptionsModal();
     const mobile = prompt("Enter 10 digit mobile number:");
@@ -543,11 +654,13 @@ function loadAndListenMenu() {
         if (document.getElementById("menuSection").style.display !== "none") loadCustomerMenu();
     });
 }
+
 function saveMenu() {
     const menuObj = {};
     items.forEach((item, i) => menuObj[i] = item);
     db.ref('menu').set(menuObj);
 }
+
 function renderStaffMenu() {
     const select = document.getElementById("item");
     select.innerHTML = '<option value="">-- Select Item --</option>';
@@ -555,6 +668,7 @@ function renderStaffMenu() {
         select.innerHTML += `<option value="${idx}">${item.name_en} - ₹${item.price}</option>`;
     });
 }
+
 async function addNewMenuItem() {
     const nameEn = document.getElementById("newItemName").value.trim();
     const price = parseFloat(document.getElementById("newItemPrice").value);
@@ -576,6 +690,7 @@ async function addNewMenuItem() {
     document.getElementById("newItemName").value = "";
     document.getElementById("newItemPrice").value = "";
 }
+
 async function translateText(text, targetLang) {
     try {
         const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
@@ -584,13 +699,16 @@ async function translateText(text, targetLang) {
         return data[0][0][0] || text;
     } catch (e) { return text; }
 }
+
 function showCurrentMenu() {
     document.getElementById("currentMenuSection").style.display = "block";
     renderCurrentMenu();
 }
+
 function hideCurrentMenu() {
     document.getElementById("currentMenuSection").style.display = "none";
 }
+
 function renderCurrentMenu() {
     const container = document.getElementById("currentMenuList");
     container.innerHTML = "";
@@ -610,6 +728,7 @@ function renderCurrentMenu() {
         container.appendChild(div);
     });
 }
+
 function deleteMenuItem(index) {
     if (!confirm(`Delete "${items[index].name_en}"?`)) return;
     items.splice(index, 1);
@@ -629,6 +748,7 @@ function addItem() {
     else bill.push({name: item.name_en, qty: qty, price: item.price});
     renderBill();
 }
+
 function renderBill() {
     let html = "", subtotal = 0;
     bill.forEach((b, i) => {
@@ -642,12 +762,14 @@ function renderBill() {
     const grandTotal = subtotal + gst;
     document.getElementById("total").innerText = grandTotal.toFixed(2);
 }
+
 function removeItem(i) {
     bill.splice(i, 1);
     renderBill();
 }
+
 function voiceAdd() {
-    alert("🎤 Voice Add feature coming soon. Use 'Add Item' for now.");
+    alert("🎤 Voice Add feature coming soon.");
 }
 
 // ====================== PRINTING ======================
@@ -657,11 +779,9 @@ function printBill() {
     const gst = gstEnabled ? Math.round(subtotal * 0.05) : 0;
     const grandTotal = subtotal + gst;
     const customer = document.getElementById("customerName").value || "Walk-in";
-
     const printWindow = window.open('', '_blank');
     let htmlContent = '<html><head><title>Bill - Shree & Shriyan Dhaba</title>';
     htmlContent += '<style>body{font-family:monospace;padding:20px;max-width:300px;margin:auto;}table{width:100%;border-collapse:collapse;}th,td{border-bottom:1px dotted #000;padding:4px 0;text-align:center;} img{display:block;margin:10px auto;}</style></head><body>';
-    
     htmlContent += '<div style="text-align:center;">';
     htmlContent += '<img src="./logo_180x90.jpg" alt="Shree & Shriyan Dhaba" style="max-width:180px;height:auto;">';
     htmlContent += '<h2>Shree & Shriyan Dhaba</h2>';
@@ -678,7 +798,6 @@ function printBill() {
     htmlContent += '<h3 style="text-align:center;">Grand Total: ₹' + grandTotal + '</h3>';
     htmlContent += '<p style="text-align:center; font-size:12px;">Thank You! Visit Again</p></div>';
     htmlContent += '<script>window.print(); setTimeout(() => window.close(), 800);<\/script></body></html>';
-    
     printWindow.document.write(htmlContent);
     printWindow.document.close();
     bill = [];
@@ -687,13 +806,13 @@ function printBill() {
     document.getElementById("invoice").value = "INV" + String(count).padStart(3, '0');
     localStorage.setItem("inv", count);
 }
+
 function printThermalBill() {
     if (bill.length === 0) return alert("Bill is empty!");
-    alert("🖨️ Thermal Print triggered with Logo.\n\n(For real thermal printing, use ESC/POS printer or QZ Tray in future.)");
+    alert("🖨️ Thermal Print triggered.");
     printBill();
 }
 
-// ====================== OTHER FUNCTIONS ======================
 function exportExcel() {
     if (bill.length === 0) return alert("No items in the bill!");
     let csv = "Item,Quantity,Rate,Amount\n";
@@ -717,11 +836,9 @@ function sendWhatsApp() {
     if (bill.length === 0) return alert("Bill is empty!");
     const mobile = prompt("Enter 10 digit mobile number:");
     if (!mobile || mobile.length !== 10) return alert("Please enter valid 10-digit number!");
-
     const subtotal = bill.reduce((sum, b) => sum + (b.qty * b.price), 0);
     const gst = gstEnabled ? Math.round(subtotal * 0.05) : 0;
     const total = subtotal + gst;
-
     let msg = `*Shree & Shriyan Dhaba*\n\n`;
     msg += `📍 Durlaga, Jharsuguda, Odisha\n`;
     msg += `📞 +91 7077088311\n\n`;
@@ -729,18 +846,15 @@ function sendWhatsApp() {
     msg += `Invoice: INV${String(count).padStart(3,'0')}\n`;
     msg += `Date: ${new Date().toLocaleString()}\n\n`;
     msg += `──────────────────\n`;
-
     bill.forEach(b => {
         msg += `${b.name} ×${b.qty} = ₹${b.qty * b.price}\n`;
     });
-
     msg += `──────────────────\n`;
     msg += `Subtotal : ₹${subtotal}\n`;
     if (gstEnabled) msg += `GST (5%) : ₹${gst}\n`;
     msg += `*Grand Total : ₹${total}*\n\n`;
     msg += `Thank You! Visit Again 😊\n\n`;
     msg += `📱 Pay via UPI: 8847810037jp@ybl`;
-
     window.open(`https://wa.me/91${mobile}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
@@ -766,11 +880,14 @@ function dailyReport() {
         alert("✅ Daily Sales Report exported as CSV!");
     });
 }
+
+// ====================== LIVE TABLE ORDERS ======================
 function showTableOrders() {
     const section = document.getElementById("liveOrdersSection");
     section.style.display = (section.style.display === "block") ? "none" : "block";
     if (section.style.display === "block") loadLiveOrdersRealTime();
 }
+
 function loadLiveOrdersRealTime() {
     const tbody = document.getElementById("liveOrdersBody");
     if (liveOrdersRef) liveOrdersRef.off();
@@ -801,20 +918,45 @@ function loadLiveOrdersRealTime() {
         });
     });
 }
+
 function deleteLiveOrder(orderId) {
     if (!confirm("Delete this order?")) return;
     db.ref('tableOrders/' + orderId).remove();
 }
 
-// ====================== NEW ORDER + PAYMENT AUTO POPUP ======================
+// ====================== REAL-TIME LISTENER FOR STAFF (ORDERS + CASH PAYMENTS) ======================
 db.ref('tableOrders').on('child_added', (snapshot) => {
-    const order = snapshot.val();
-    if (order && order.status === 'pending' && order.type === "order") {
-        let receivedMsg = `ORDER RECEIVED FROM THE TABLE ${order.table} ${order.name || 'Guest'}`;
-        if (order.lang === 'hi') receivedMsg = `टेबल ${order.table} ${order.name || 'Guest'} से ऑर्डर प्राप्त हुआ`;
-        else if (order.lang === 'or') receivedMsg = `ଟେବୁଲ ${order.table} ${order.name || 'Guest'} ରୁ ଅର୍ଡର ପ୍ରାପ୍ତ ହୋଇଛି`;
-        speak(receivedMsg, order.lang || 'en');
-        showNewOrderPopup(order);
+    const data = snapshot.val();
+    if (!data) return;
+
+    if (data.type === "order" && data.status === "pending") {
+        let receivedMsg = `ORDER RECEIVED FROM TABLE ${data.table} ${data.name || 'Guest'}`;
+        if (data.lang === 'hi') receivedMsg = `टेबल ${data.table} ${data.name || 'Guest'} से ऑर्डर प्राप्त हुआ`;
+        else if (data.lang === 'or') receivedMsg = `ଟେବୁଲ ${data.table} ${data.name || 'Guest'} ରୁ ଅର୍ଡର ପ୍ରାପ୍ତ ହୋଇଛି`;
+
+        speak(receivedMsg, data.lang || 'en');
+        showNewOrderPopup(data);
+    }
+
+    else if (data.type === "cash_payment_notification" && data.status === "cash_pending") {
+        let cashMsg = `CASH PAYMENT REQUEST - TABLE ${data.table} - ₹${data.total || 0} - ${data.name || 'Guest'}`;
+        
+        if (data.lang === 'hi') {
+            cashMsg = `टेबल ${data.table} - ₹${data.total || 0} - कैश पेमेंट रिक्वेस्ट - ${data.name || 'Guest'}`;
+        } else if (data.lang === 'or') {
+            cashMsg = `ଟେବୁଲ ${data.table} - ₹${data.total || 0} - କ୍ୟାଶ୍ ପେମେଣ୍ଟ ରିକ୍ୱେଷ୍ଟ - ${data.name || 'Guest'}`;
+        }
+
+        speak(cashMsg, 'en');
+        showCashStaffPopup(data);
+    }
+});
+
+// ====================== EXTRA SAFETY LISTENER ======================
+db.ref('tableOrders').on('child_changed', (snapshot) => {
+    const data = snapshot.val();
+    if (data && data.type === "cash_payment_notification" && data.status === "cash_pending") {
+        showCashStaffPopup(data);
     }
 });
 
@@ -832,6 +974,7 @@ function generateDynamicPhonePeQR() {
     container.innerHTML = `<img src="${qrUrl}" style="cursor:pointer;" onclick="window.open('${upiLink}','_blank')" alt="UPI QR"><p style="margin:8px 0 0 0; font-weight:bold; color:#6739B7;">₹${total.toFixed(2)} — Tap to Pay</p>`;
     container.style.display = "block";
 }
+
 function generateQRCode() {
     const tableNo = document.getElementById("qrTableNum").value.trim();
     if (!tableNo) return alert("Enter Table Number");
@@ -843,6 +986,7 @@ function generateQRCode() {
         <p style="margin-top:10px; font-weight:bold; color:#d84315;">Table ${tableNo} - Scan to Order</p>
     `;
 }
+
 function joinTable() {
     currentTable = document.getElementById("custTable").value.trim();
     currentName = document.getElementById("custName").value.trim();
@@ -854,6 +998,7 @@ function joinTable() {
     document.getElementById("displayName").innerText = currentName;
     loadCustomerMenu();
 }
+
 function loadCustomerMenu() {
     let html = '';
     if (items.length === 0) {
@@ -871,6 +1016,7 @@ function loadCustomerMenu() {
     });
     document.getElementById("menuItems").innerHTML = html;
 }
+
 function addCustomerItem(idx) {
     const item = items[idx];
     let existing = customerOrder.find(o => o.name_en === item.name_en);
@@ -878,6 +1024,7 @@ function addCustomerItem(idx) {
     else customerOrder.push({...item, qty: 1});
     renderCustomerOrder();
 }
+
 function renderCustomerOrder() {
     let html = "", total = 0;
     customerOrder.forEach((b, i) => {
@@ -889,10 +1036,12 @@ function renderCustomerOrder() {
     document.getElementById("custTotal").innerText = total.toFixed(2);
     generateDynamicPhonePeQR();
 }
+
 function delCustomerItem(i) {
     customerOrder.splice(i, 1);
     renderCustomerOrder();
 }
+
 function clearCustomerOrder() {
     if (confirm("Clear cart?")) {
         customerOrder = [];
