@@ -541,6 +541,118 @@ function sendCustomerBillToWhatsApp(mobile) {
     renderCustomerOrder();
     alert(`✅ Bill sent to +91${mobile}`);
 }
+    // ====================== REFINED SAVE BILL FUNCTION ======================
+window.saveBillFromModal = function(orderId) {
+    closeBillOptionsModal();
+
+    db.ref('tableOrders/' + orderId).once('value', (snapshot) => {
+        const order = snapshot.val();
+        
+        if (!order || !order.items || order.items.length === 0) {
+            alert("❌ Order not found or empty!");
+            return;
+        }
+
+        let subtotal = 0;
+        order.items.forEach(item => {
+            subtotal += (item.qty || 1) * (item.price || 0);
+        });
+        const gst = Math.round(subtotal * 0.05);
+        const grandTotal = subtotal + gst;
+
+        let billHTML = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bill - Table ${order.table}</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 420px; margin: 0 auto; background: #f8f9fa; }
+        .bill { 
+            background: white; 
+            border: 4px solid #d84315; 
+            border-radius: 16px; 
+            padding: 25px; 
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+        }
+        h2 { text-align: center; color: #d84315; margin: 5px 0; }
+        .subtitle { text-align: center; color: #555; font-size: 14px; }
+        .info { margin: 18px 0; line-height: 1.6; }
+        table { width: 100%; border-collapse: collapse; margin: 18px 0; }
+        th, td { padding: 10px 8px; border-bottom: 1px solid #ddd; }
+        th { background: #fff3e0; color: #d84315; }
+        .amount { text-align: right; }
+        .grand-total { 
+            font-size: 19px; 
+            font-weight: bold; 
+            color: #d84315; 
+            text-align: right; 
+            border-top: 2px solid #d84315; 
+            padding-top: 10px; 
+        }
+        .footer { text-align: center; margin-top: 25px; color: #666; font-size: 13.5px; }
+    </style>
+</head>
+<body>
+    <div class="bill">
+        <h2>Shree & Shriyan Dhaba</h2>
+        <p class="subtitle">Durlaga, Jharsuguda, Odisha • +91 7077088311</p>
+        
+        <div class="info">
+            <strong>Table:</strong> ${order.table}<br>
+            <strong>Customer:</strong> ${order.name || 'Guest'}<br>
+            <strong>Date:</strong> ${order.timestamp || new Date().toLocaleString()}<br>
+            <strong>Invoice:</strong> INV-${String(order.id).slice(-6)}
+        </div>
+
+        <table>
+            <thead><tr><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Rate</th><th class="amount">Amount</th></tr></thead>
+            <tbody>
+`;
+
+        order.items.forEach(item => {
+            const amt = (item.qty || 1) * (item.price || 0);
+            billHTML += `<tr>
+                <td>${item.name_en || item.name}</td>
+                <td style="text-align:center">${item.qty || 1}</td>
+                <td style="text-align:right">₹${item.price || 0}</td>
+                <td class="amount">₹${amt}</td>
+            </tr>`;
+        });
+
+        billHTML += `
+            </tbody>
+        </table>
+
+        <div style="margin-top:15px;">
+            <div>Subtotal: ₹${subtotal}</div>
+            <div>GST (5%): ₹${gst}</div>
+            <div class="grand-total">Grand Total: ₹${grandTotal}</div>
+        </div>
+
+        <div class="footer">
+            <p>Thank You! Visit Again 😊</p>
+            <p>UPI: 8847810037jp@ybl</p>
+        </div>
+    </div>
+</body>
+</html>`;
+
+        // Download
+        const blob = new Blob([billHTML], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Bill_Table${order.table}_${new Date().toISOString().slice(0,10)}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        alert(`✅ Bill for Table ${order.table} downloaded successfully!`);
+    });
+};
 
 // ====================== MODAL FUNCTIONS ======================
 function showNewOrderPopup(order) {
@@ -578,18 +690,47 @@ function acceptLiveOrder(orderId) {
 }
 
 function showBillOptionsModal(order) {
+    if (!order || !order.id) {
+        alert("Invalid order data!");
+        return;
+    }
+
     let modalHTML = `
         <div class="modal" style="display:flex;">
             <div class="modal-content" style="max-width:480px;">
                 <h3 style="color:#d84315;">Bill for Table ${order.table} - ${order.name || 'Guest'}</h3>
-                <p style="font-size:18px; margin:10px 0;">Total ₹${order.total}</p>
-                <button onclick="printNormalFromModal('${order.id}')" style="margin:8px 0; background:#2e7d32;">🧾 Normal Print & Clear</button>
-                <button onclick="printThermalFromModal('${order.id}')" style="margin:8px 0; background:#d84315;">🖨️ Thermal Print + Auto Cut</button>
-                <button onclick="sendWhatsAppFromModal('${order.id}')" style="margin:8px 0; background:#25D366;">📲 Send Bill to WhatsApp</button>
-                <button onclick="saveBillFromModal('${order.id}')" style="margin:8px 0; background:#666;">💾 Save Bill</button>
-                <button onclick="closeBillOptionsModal()" style="margin-top:15px; background:#999;">Close</button>
+                <p style="font-size:18px; margin:15px 0; font-weight:bold;">Total ₹${order.total}</p>
+                
+                <button onclick="printNormalFromModal('${order.id}')" 
+                        style="margin:8px 0; background:#2e7d32; width:100%; padding:12px; font-size:16px;">
+                    🧾 Normal Print & Clear
+                </button>
+                
+                <button onclick="printThermalFromModal('${order.id}')" 
+                        style="margin:8px 0; background:#d84315; width:100%; padding:12px; font-size:16px;">
+                    🖨️ Thermal Print + Auto Cut
+                </button>
+                
+                <button onclick="sendWhatsAppFromModal('${order.id}')" 
+                        style="margin:8px 0; background:#25D366; width:100%; padding:12px; font-size:16px;">
+                    📲 Send Bill to WhatsApp
+                </button>
+                
+                <button onclick="saveBillFromModal('${order.id}')" 
+                        style="margin:12px 0 8px 0; background:#1976d2; width:100%; padding:14px; font-size:17px; font-weight:bold; color:white;">
+                    💾 Save Bill (Download)
+                </button>
+
+                <button onclick="closeBillOptionsModal()" 
+                        style="margin-top:15px; background:#999; width:100%; padding:12px;">
+                    Close
+                </button>
             </div>
         </div>`;
+
+    // Remove any existing extra modals first
+    document.querySelectorAll('.modal').forEach(m => m.remove());
+
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = modalHTML;
     document.body.appendChild(tempDiv.firstElementChild);
